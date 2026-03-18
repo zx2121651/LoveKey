@@ -88,38 +88,73 @@ class HomeScreen extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.pink.withOpacity(0.3), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
+              color: Colors.pink.withOpacity(0.05),
               spreadRadius: 2,
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),
           ],
         ),
-        child: TextField(
-          decoration: InputDecoration(
-            hintText: '输入 TA 说的话，获得高情商回复',
-            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-            suffixIcon: Padding(
-              padding: const EdgeInsets.all(4.0),
-              child: ElevatedButton(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black87,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                ),
-                child: const Text('搜索'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              maxLines: 3,
+              minLines: 1,
+              decoration: InputDecoration(
+                hintText: '在此粘贴对方的话，AI帮你生成高情商回复...',
+                hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.all(16),
               ),
             ),
-          ),
+            Padding(
+              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      // TODO: Implement wording polishing
+                    },
+                    icon: const Icon(Icons.edit_note, size: 18),
+                    label: const Text('帮你措辞'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.pink[400],
+                      side: BorderSide(color: Colors.pink[200]!),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                      minimumSize: const Size(0, 32),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      // TODO: Implement AI reply generation mock
+                    },
+                    icon: const Icon(Icons.auto_awesome, size: 18),
+                    label: const Text('恋爱帮回'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.pink[400],
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                      minimumSize: const Size(0, 32),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -190,59 +225,113 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildMyKeyboardSection() {
-    final tags = [
-      {'label': '1. 高情商', 'color': Colors.pink},
-      {'label': '2. 撩女生', 'color': Colors.purple},
-      {'label': '3. 情场高手', 'color': Colors.blue},
-      {'label': '4. 暧昧拉扯', 'color': Colors.purpleAccent},
-      {'label': '5. 幽默', 'color': Colors.orange},
-      {'label': '6. 夸夸 TA', 'color': Colors.teal},
-      {'label': '7. 贴心暖男', 'color': Colors.orangeAccent},
-      {'label': '8. 风流浪子', 'color': Colors.redAccent},
-      {'label': '9. 逗比', 'color': Colors.deepPurple},
-    ];
-
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                '我的键盘',
+                '如何启用恋爱键盘',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
-              Row(
-                children: [
-                  Text('更多键盘', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                  Icon(Icons.chevron_right, size: 16, color: Colors.grey[600]),
-                ],
-              )
             ],
           ),
           const SizedBox(height: 15),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: tags.map((tag) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.grey[200]!),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9FAFB),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFF0F0F0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildKeyboardStep(
+                  stepNumber: '1',
+                  title: '启用恋爱键盘',
+                  subtitle: '前往设置开启',
+                  icon: Icons.settings_suggest,
+                  color: Colors.pink,
+                  onTap: () {
+                    // TODO: Navigate to Android input settings
+                  },
                 ),
-                child: Text(
-                  tag['label'] as String,
-                  style: TextStyle(
-                    color: tag['color'] as Color,
-                    fontWeight: FontWeight.w500,
-                  ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                  child: Divider(height: 1, color: Color(0xFFEEEEEE)),
                 ),
-              );
-            }).toList(),
+                _buildKeyboardStep(
+                  stepNumber: '2',
+                  title: '切换到恋爱键盘',
+                  subtitle: '在聊天时使用',
+                  icon: Icons.keyboard,
+                  color: Colors.blue,
+                  onTap: () {
+                    // TODO: Show input method picker
+                  },
+                ),
+              ],
+            ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKeyboardStep({
+    required String stepNumber,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                stepNumber,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Icon(icon, color: color, size: 24),
+          const SizedBox(width: 8),
+          const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
         ],
       ),
     );

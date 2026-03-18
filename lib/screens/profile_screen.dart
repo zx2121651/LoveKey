@@ -138,10 +138,11 @@ class ProfileScreen extends StatelessWidget {
         children: [
           _buildMenuItem(Icons.person_outline, '个人信息'),
           _buildMenuItem(Icons.receipt_long, '消费记录'),
-          _buildMenuItem(Icons.info_outline, '关于'),
+          _buildMenuItem(Icons.verified_user_outlined, '隐私政策'),
+          _buildMenuItem(Icons.description_outlined, '用户协议'),
+          _buildMenuItem(Icons.info_outline, '关于恋爱键盘'),
           _buildMenuItem(Icons.headset_mic_outlined, '联系客服'),
           _buildMenuItem(Icons.settings_outlined, '设置'),
-          _buildMenuItem(Icons.gavel_outlined, '摘要投诉'),
         ],
       ),
     );

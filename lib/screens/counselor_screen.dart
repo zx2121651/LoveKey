@@ -17,6 +17,7 @@ class _CounselorScreenState extends State<CounselorScreen> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<ChatMessage> _messages = [];
+  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   bool _isTyping = false;
 
   void _handleSubmitted(String text) {
@@ -24,9 +25,12 @@ class _CounselorScreenState extends State<CounselorScreen> {
     if (text.trim().isEmpty) return;
 
     setState(() {
-      _messages.add(ChatMessage(text: text, isUser: true));
       _isTyping = true;
     });
+
+    _messages.add(ChatMessage(text: text, isUser: true));
+    _listKey.currentState?.insertItem(_messages.length); // length+1 is effectively the end, index is _messages.length - 1 + 1 (for header)
+
     _scrollToBottom();
 
     // Simulate AI thinking and replying
@@ -34,11 +38,14 @@ class _CounselorScreenState extends State<CounselorScreen> {
       if (!mounted) return;
       setState(() {
         _isTyping = false;
-        _messages.add(ChatMessage(
-          text: _generateMockResponse(text),
-          isUser: false,
-        ));
       });
+
+      _messages.add(ChatMessage(
+        text: _generateMockResponse(text),
+        isUser: false,
+      ));
+      _listKey.currentState?.insertItem(_messages.length);
+
       _scrollToBottom();
     });
   }
@@ -100,16 +107,29 @@ class _CounselorScreenState extends State<CounselorScreen> {
   }
 
   Widget _buildChatArea() {
-    return ListView.builder(
+    return AnimatedList(
+      key: _listKey,
       controller: _scrollController,
       padding: const EdgeInsets.all(16),
-      itemCount: _messages.isEmpty ? 1 : _messages.length + 1,
-      itemBuilder: (context, index) {
+      initialItemCount: _messages.length + 1,
+      itemBuilder: (context, index, animation) {
         if (index == 0) {
           return _buildGreetingCard();
         }
         final message = _messages[index - 1];
-        return _buildChatMessage(message);
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.5),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutBack,
+          )),
+          child: FadeTransition(
+            opacity: animation,
+            child: _buildChatMessage(message),
+          ),
+        );
       },
     );
   }

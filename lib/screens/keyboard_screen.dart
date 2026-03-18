@@ -218,16 +218,28 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
                   ),
                   GestureDetector(
                     onTap: () => _togglePersonaStatus(index),
-                    child: Container(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOutBack,
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
                         color: isAdded ? Colors.grey[200] : const Color(0xFFFF6B4A),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(
-                        isAdded ? Icons.check : Icons.add,
-                        size: 14,
-                        color: isAdded ? Colors.grey[600] : Colors.white,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        transitionBuilder: (child, animation) {
+                          return ScaleTransition(
+                            scale: animation,
+                            child: child,
+                          );
+                        },
+                        child: Icon(
+                          isAdded ? Icons.check : Icons.add,
+                          key: ValueKey<bool>(isAdded),
+                          size: 14,
+                          color: isAdded ? Colors.grey[600] : Colors.white,
+                        ),
                       ),
                     ),
                   ),

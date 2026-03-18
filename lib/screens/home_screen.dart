@@ -10,8 +10,30 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
+  late AnimationController _heartAnimationController;
+  late Animation<double> _heartScaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _heartAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+
+    _heartScaleAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(parent: _heartAnimationController, curve: Curves.easeInOutCubic),
+    );
+  }
+
+  @override
+  void dispose() {
+    _heartAnimationController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
 
   void _showGenerateDialog(BuildContext context) {
     if (_searchController.text.trim().isEmpty) return;
@@ -91,11 +113,14 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          // Placeholder for the 3D heart icon
-          Icon(
-            Icons.favorite,
-            size: 80,
-            color: Colors.pink[400],
+          // Beating heart animation
+          ScaleTransition(
+            scale: _heartScaleAnimation,
+            child: Icon(
+              Icons.favorite,
+              size: 80,
+              color: Colors.pink[400],
+            ),
           ),
         ],
       ),

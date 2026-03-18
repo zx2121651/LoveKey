@@ -1,7 +1,29 @@
 import 'package:flutter/material.dart';
 
-class KeyboardScreen extends StatelessWidget {
+class KeyboardScreen extends StatefulWidget {
   const KeyboardScreen({super.key});
+
+  @override
+  State<KeyboardScreen> createState() => _KeyboardScreenState();
+}
+
+class _KeyboardScreenState extends State<KeyboardScreen> {
+  final List<Map<String, dynamic>> personas = [
+    {'title': '恋爱大师', 'subtitle': '精通恋爱技巧了解人心', 'icon': Icons.favorite_border, 'added': true},
+    {'title': '情场高手', 'subtitle': '深谙情场之道，游刃有余', 'icon': Icons.psychology, 'added': true},
+    {'title': '土味情话', 'subtitle': '用接地气的情话，打动她', 'icon': Icons.chat, 'added': true},
+    {'title': '情绪稳定', 'subtitle': '星级安慰人，给人力量', 'icon': Icons.spa, 'added': false},
+    {'title': '花式撩人', 'subtitle': '风趣浪漫，俘获芳心', 'icon': Icons.local_florist, 'added': false},
+    {'title': '暧昧拉扯', 'subtitle': '若即若离，让人欲罢不能', 'icon': Icons.all_inclusive, 'added': true},
+    {'title': '撩女生', 'subtitle': '擅长用各种方式吸引女生', 'icon': Icons.girl, 'added': false},
+    {'title': '贴心暖男', 'subtitle': '心思细腻，总是给予关怀', 'icon': Icons.wb_sunny, 'added': true},
+  ];
+
+  void _togglePersonaStatus(int index) {
+    setState(() {
+      personas[index]['added'] = !personas[index]['added'];
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -140,17 +162,6 @@ class KeyboardScreen extends StatelessWidget {
   }
 
   Widget _buildPersonaGrid() {
-    final personas = [
-      {'title': '恋爱大师', 'subtitle': '精通恋爱技巧了解人心', 'icon': Icons.favorite_border, 'added': true},
-      {'title': '情场高手', 'subtitle': '深谙情场之道，游刃有余', 'icon': Icons.psychology, 'added': true},
-      {'title': '土味情话', 'subtitle': '用接地气的情话，打动她', 'icon': Icons.chat, 'added': true},
-      {'title': '情绪稳定', 'subtitle': '星级安慰人，给人力量', 'icon': Icons.spa, 'added': false},
-      {'title': '花式撩人', 'subtitle': '风趣浪漫，俘获芳心', 'icon': Icons.local_florist, 'added': true},
-      {'title': '暧昧拉扯', 'subtitle': '若即若离，让人欲罢不能', 'icon': Icons.all_inclusive, 'added': true},
-      {'title': '撩女生', 'subtitle': '擅长用各种方式吸引女生', 'icon': Icons.girl, 'added': true},
-      {'title': '贴心暖男', 'subtitle': '心思细腻，总是给予关怀', 'icon': Icons.wb_sunny, 'added': true},
-    ];
-
     return GridView.builder(
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -205,16 +216,19 @@ class KeyboardScreen extends StatelessWidget {
                     backgroundColor: Colors.grey[200],
                     child: Icon(persona['icon'] as IconData, size: 16, color: Colors.black54),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isAdded ? Colors.grey[200] : const Color(0xFFFF6B4A),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      isAdded ? Icons.check : Icons.add,
-                      size: 14,
-                      color: isAdded ? Colors.grey[600] : Colors.white,
+                  GestureDetector(
+                    onTap: () => _togglePersonaStatus(index),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isAdded ? Colors.grey[200] : const Color(0xFFFF6B4A),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        isAdded ? Icons.check : Icons.add,
+                        size: 14,
+                        color: isAdded ? Colors.grey[600] : Colors.white,
+                      ),
                     ),
                   ),
                 ],

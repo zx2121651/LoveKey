@@ -1,8 +1,28 @@
 import 'package:flutter/material.dart';
 import 'counselor_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+import 'package:flutter/services.dart';
+
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final TextEditingController _searchController = TextEditingController();
+
+  void _showGenerateDialog(BuildContext context) {
+    if (_searchController.text.trim().isEmpty) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _BuildGenerateResultSheet(query: _searchController.text),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,7 +34,7 @@ class HomeScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeader(),
-              _buildSearchBar(),
+              _buildSearchBar(context),
               _buildFeatureCards(context),
               _buildMyKeyboardSection(),
               _buildLoveQuotesSection(),
@@ -82,7 +102,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Container(
@@ -99,6 +119,9 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
         child: TextField(
+          controller: _searchController,
+          textInputAction: TextInputAction.search,
+          onSubmitted: (_) => _showGenerateDialog(context),
           decoration: InputDecoration(
             hintText: '输入 TA 说的话，获得高情商回复',
             hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
@@ -107,7 +130,7 @@ class HomeScreen extends StatelessWidget {
             suffixIcon: Padding(
               padding: const EdgeInsets.all(4.0),
               child: ElevatedButton(
-                onPressed: () {},
+                onPressed: () => _showGenerateDialog(context),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.black87,
                   foregroundColor: Colors.white,
@@ -308,6 +331,113 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 40), // Bottom padding
+        ],
+      ),
+    );
+  }
+}
+
+class _BuildGenerateResultSheet extends StatefulWidget {
+  final String query;
+  const _BuildGenerateResultSheet({required this.query});
+
+  @override
+  State<_BuildGenerateResultSheet> createState() => _BuildGenerateResultSheetState();
+}
+
+class _BuildGenerateResultSheetState extends State<_BuildGenerateResultSheet> {
+  bool _isLoading = true;
+  final List<String> _mockReplies = [
+    '这是我听过最有趣的想法了，你真有意思！',
+    '哈哈，你这么说我会骄傲的哦～',
+    '那你想不想知道我是怎么想的？😏',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    });
+  }
+
+  void _copyToClipboard(String text) {
+    Clipboard.setData(ClipboardData(text: text)).then((_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已复制到剪贴板，快去回复吧！')),
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.6,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            height: 4,
+            width: 40,
+            margin: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const Text('AI 高情商回复', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+          Expanded(
+            child: _isLoading
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('AI 正在为你生成完美的回复...', style: TextStyle(color: Colors.grey)),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(20),
+                    itemCount: _mockReplies.length,
+                    itemBuilder: (context, index) {
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF9FAFB),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(_mockReplies[index], style: const TextStyle(fontSize: 14)),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.copy, color: Colors.pink, size: 20),
+                              onPressed: () => _copyToClipboard(_mockReplies[index]),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
         ],
       ),
     );

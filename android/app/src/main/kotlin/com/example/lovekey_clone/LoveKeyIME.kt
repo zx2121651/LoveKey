@@ -171,68 +171,138 @@ fun LoveKeyKeyboardUI(
             )
             .padding(bottom = 8.dp) // Slight bottom padding
     ) {
-        // Top Toolbar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Avatar / Logo Icon
-            Box(
+        // Dynamic Top Area: Toolbar OR Candidate/Refine View
+        if (draftText.isEmpty()) {
+            // Top Toolbar (Default state when no draft)
+            Row(
                 modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF4285F4)),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("☺️", fontSize = 18.sp) // Simplified icon
+                // Avatar / Logo Icon
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF4285F4)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("☺️", fontSize = 18.sp) // Simplified icon
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // 帮你回
+                Button(
+                    onClick = {
+                        activeTab = if (activeTab == "quick_reply") "keyboard" else "quick_reply"
+                    },
+                    colors = ButtonDefaults.buttonColors(backgroundColor = Color.White),
+                    shape = RoundedCornerShape(18.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                    modifier = Modifier.height(32.dp),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) {
+                    Text("帮你回", color = Color(0xFF333333), fontSize = 13.sp)
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // 超会说
+                Button(
+                    onClick = {
+                        if (activeTab != "ai_reply") {
+                            checkAndUseFeature { activeTab = "ai_reply" }
+                        } else {
+                            activeTab = "keyboard"
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(backgroundColor = Color.White),
+                    shape = RoundedCornerShape(18.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                    modifier = Modifier.height(32.dp),
+                    elevation = ButtonDefaults.elevation(0.dp)
+                ) {
+                    Text("超会说", color = Color(0xFF333333), fontSize = 13.sp)
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // History Icon
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .clickable { /* History */ },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(imageVector = Icons.Default.List, contentDescription = "History", tint = Color(0xFF888888), modifier = Modifier.size(20.dp))
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Apps Grid Icon / AI Icon
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .clickable {
+                            if (activeTab != "custom_prompt") {
+                                checkAndUseFeature { activeTab = "custom_prompt" }
+                            } else {
+                                activeTab = "keyboard"
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(imageVector = Icons.Default.Edit, contentDescription = "AI Prompt", tint = Color(0xFF888888), modifier = Modifier.size(20.dp))
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Heart / Quota
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFFFCDD2))
+                        .clickable { showPaywall = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(if (isVip) "VIP" else "$freeUsageCount", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
             }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // 帮你回
-            Button(
-                onClick = {
-                    activeTab = if (activeTab == "quick_reply") "keyboard" else "quick_reply"
-                },
-                colors = ButtonDefaults.buttonColors(backgroundColor = Color.White),
-                shape = RoundedCornerShape(18.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                modifier = Modifier.height(32.dp),
-                elevation = ButtonDefaults.elevation(0.dp)
+        } else {
+            // Candidate / Refine View (When draft exists)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White.copy(alpha = 0.5f))
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("帮你回", color = Color(0xFF333333), fontSize = 13.sp)
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // 超会说
-            Button(
-                onClick = {
-                    if (activeTab != "ai_reply") {
-                        checkAndUseFeature { activeTab = "ai_reply" }
-                    } else {
-                        activeTab = "keyboard"
+                // Mock Candidate Words
+                val candidates = listOf("你好", "好啊", "好的呢", "是的")
+                LazyRow(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(candidates) { word ->
+                        Text(
+                            text = word,
+                            color = Color(0xFF333333),
+                            fontSize = 16.sp,
+                            modifier = Modifier.clickable { onCommitText(word) }.padding(vertical = 8.dp)
+                        )
                     }
-                },
-                colors = ButtonDefaults.buttonColors(backgroundColor = Color.White),
-                shape = RoundedCornerShape(18.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                modifier = Modifier.height(32.dp),
-                elevation = ButtonDefaults.elevation(0.dp)
-            ) {
-                Text("超会说", color = Color(0xFF333333), fontSize = 13.sp)
-            }
+                }
 
-            Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(8.dp))
 
-            // ✨换个说法
-            AnimatedVisibility(
-                visible = draftText.isNotEmpty(),
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
+                // ✨换个说法 (The single entry point)
                 Button(
                     onClick = {
                         checkAndUseFeature {
@@ -243,58 +313,11 @@ fun LoveKeyKeyboardUI(
                     colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF8A9CFF)),
                     shape = RoundedCornerShape(18.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                    modifier = Modifier.height(32.dp).padding(end = 8.dp),
+                    modifier = Modifier.height(32.dp),
                     elevation = ButtonDefaults.elevation(2.dp)
                 ) {
                     Text("✨换个说法", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
-            }
-
-
-            // History Icon
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color.White)
-                    .clickable { /* History */ },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(imageVector = Icons.Default.List, contentDescription = "History", tint = Color(0xFF888888), modifier = Modifier.size(20.dp))
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Apps Grid Icon / AI Icon
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color.White)
-                    .clickable {
-                        if (activeTab != "custom_prompt") {
-                            checkAndUseFeature { activeTab = "custom_prompt" }
-                        } else {
-                            activeTab = "keyboard"
-                        }
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(imageVector = Icons.Default.Edit, contentDescription = "AI Prompt", tint = Color(0xFF888888), modifier = Modifier.size(20.dp))
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Heart / Quota
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFFFCDD2))
-                    .clickable { /* Quota */ },
-                contentAlignment = Alignment.Center
-            ) {
-                Text("30%", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
         }
 

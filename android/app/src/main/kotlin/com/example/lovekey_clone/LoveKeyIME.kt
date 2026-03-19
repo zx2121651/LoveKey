@@ -54,30 +54,25 @@ class LoveKeyIME : InputMethodService() {
     // Mutable state to hold the text before the cursor
     private val currentDraftText = mutableStateOf("")
 
-    // T9 Composing State (the numbers the user is currently pressing)
+    // State backed by the C++ Rime Engine
     private val currentComposingText = mutableStateOf("")
+    private val currentCandidates = mutableStateOf<List<String>>(emptyList())
 
-    // A miniature, hardcoded T9 Pinyin Dictionary for demonstration purposes.
-    // In a real app, this would be a SQLite database or a Trie tree data structure.
-    private val t9Dictionary = mapOf(
-        "64" to listOf("你", "泥", "拟"),
-        "426" to listOf("好", "号", "毫"),
-        "64426" to listOf("你好", "泥好"),
-        "92" to listOf("在", "再", "载"),
-        "62" to listOf("吗", "妈", "麻", "马"),
-        "9262" to listOf("在吗", "在嘛"),
-        "436" to listOf("很", "恨", "痕"),
-        "94264" to listOf("想你", "向你"),
-        "28" to listOf("不", "步", "部"),
-        "28296" to listOf("错", "挫", "措"),
-        "2828296" to listOf("不错"),
-        "4262" to listOf("好的", "号的")
-    )
+    // The JNI Wrapper instance
+    private val rimeEngine = RimeWrapper()
 
     override fun onCreate() {
         super.onCreate()
         lifecycleOwner = IMELifecycleOwner()
         lifecycleOwner.onCreate()
+
+        // In a real scenario, you'd extract your yaml files to `filesDir.absolutePath` first.
+        // rimeEngine.init(filesDir.absolutePath + "/rime_shared", filesDir.absolutePath + "/rime_user")
+        try {
+            rimeEngine.init("/mock/shared", "/mock/user")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override fun onUpdateSelection(
@@ -103,13 +98,7 @@ class LoveKeyIME : InputMethodService() {
             setContent {
                 val draft = currentDraftText.value
                 val composing = currentComposingText.value
-
-                // Determine candidates based on the current T9 input
-                val candidates = if (composing.isNotEmpty()) {
-                    t9Dictionary[composing] ?: listOf(composing) // Fallback to raw numbers if not found
-                } else {
-                    emptyList()
-                }
+                val candidates = currentCandidates.value
 
                 MaterialTheme {
                     LoveKeyKeyboardUI(
@@ -117,30 +106,56 @@ class LoveKeyIME : InputMethodService() {
                         composingText = composing,
                         candidates = candidates,
                         onKeyPress = { key ->
-                            // A simple logic: if a number is pressed, add to composing.
-                            // If a non-number (like a comma) is pressed, commit composing first.
-                            if (key.all { it.isDigit() }) {
-                                currentComposingText.value += key
+                            // 1. Send the keycode to the RIME C++ Engine
+                            // Typically, key is "2", "3", etc. We pass its ASCII value.
+                            val keycode = key.firstOrNull()?.code ?: 0
+                            val handled = rimeEngine.processKey(keycode)
+
+                            if (handled) {
+                                // 2. Retrieve updated composition from engine
+                                currentComposingText.value = rimeEngine.getComposingText()
                                 currentInputConnection?.setComposingText(currentComposingText.value, 1)
+
+                                // 3. Retrieve updated candidates
+                                currentCandidates.value = rimeEngine.getCandidates().toList()
                             } else {
-                                if (currentComposingText.value.isNotEmpty()) {
-                                    currentInputConnection?.commitText(currentComposingText.value, 1)
-                                    currentComposingText.value = ""
-                                }
+                                // Not handled by RIME, output directly
                                 currentInputConnection?.commitText(key, 1)
                             }
                         },
                         onCommitCandidate = { candidate ->
-                            // The user picked a Chinese word from the candidate list
-                            currentInputConnection?.commitText(candidate, 1)
-                            currentComposingText.value = ""
+                            // 1. Find index
+                            val index = currentCandidates.value.indexOf(candidate)
+                            if (index != -1) {
+                                // 2. Tell RIME to commit this index
+                                val commitText = rimeEngine.selectCandidate(index)
+                                currentInputConnection?.commitText(commitText, 1)
+
+                                // 3. Update state
+                                currentComposingText.value = rimeEngine.getComposingText()
+                                if (currentComposingText.value.isEmpty()) {
+                                    currentCandidates.value = emptyList()
+                                } else {
+                                    currentInputConnection?.setComposingText(currentComposingText.value, 1)
+                                    currentCandidates.value = rimeEngine.getCandidates().toList()
+                                }
+                            } else {
+                                // Fallback
+                                currentInputConnection?.commitText(candidate, 1)
+                                rimeEngine.clear()
+                                currentComposingText.value = ""
+                                currentCandidates.value = emptyList()
+                            }
                         },
                         onDelete = {
                             if (currentComposingText.value.isNotEmpty()) {
-                                // Delete last composing character
-                                currentComposingText.value = currentComposingText.value.dropLast(1)
+                                // Send Backspace (Keycode 8) to RIME
+                                rimeEngine.processKey(8)
+                                currentComposingText.value = rimeEngine.getComposingText()
+                                currentCandidates.value = rimeEngine.getCandidates().toList()
+
                                 if (currentComposingText.value.isEmpty()) {
-                                    currentInputConnection?.commitText("", 1) // Clear composing state from input
+                                    currentInputConnection?.commitText("", 1) // Clear UI state
                                 } else {
                                     currentInputConnection?.setComposingText(currentComposingText.value, 1)
                                 }
@@ -150,19 +165,19 @@ class LoveKeyIME : InputMethodService() {
                             }
                         },
                         onReplaceDraft = { replacement ->
-                            // Clear any active composing
-                            if (currentComposingText.value.isNotEmpty()) {
-                                currentInputConnection?.commitText("", 1)
-                                currentComposingText.value = ""
-                            }
-                            // Delete the current draft and insert the replacement
+                            rimeEngine.clear()
+                            currentComposingText.value = ""
+                            currentCandidates.value = emptyList()
+
                             currentInputConnection?.deleteSurroundingText(draft.length, 0)
                             currentInputConnection?.commitText(replacement, 1)
                         },
                         onPerformAction = {
                             if (currentComposingText.value.isNotEmpty()) {
+                                rimeEngine.clear()
                                 currentInputConnection?.commitText(currentComposingText.value, 1)
                                 currentComposingText.value = ""
+                                currentCandidates.value = emptyList()
                             }
                             currentInputConnection?.performEditorAction(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH)
                         }

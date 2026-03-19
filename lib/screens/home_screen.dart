@@ -124,40 +124,78 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
             ],
           ),
-          // Beating heart with 3D Y-axis flip animation
+          // Beating 3D Emotion Value Coin flip animation
           AnimatedBuilder(
             animation: _heartAnimationController,
             builder: (context, child) {
+              final angle = _heartRotationAnimation.value;
+              final isFront = angle <= math.pi / 2;
+
               // Create a 3D perspective matrix
               final transform = Matrix4.identity()
                 ..setEntry(3, 2, 0.0015) // depth perspective
-                ..rotateY(_heartRotationAnimation.value) // flip on Y axis
-                ..scale(_heartScaleAnimation.value, _heartScaleAnimation.value); // heartbeat scale
+                ..rotateY(angle); // flip on Y axis
+
+              // Scale matrix
+              transform.scale(_heartScaleAnimation.value, _heartScaleAnimation.value);
 
               return Transform(
                 transform: transform,
                 alignment: Alignment.center,
                 child: Container(
+                  width: 100,
+                  height: 100,
                   // We use a container with decoration to give the heart a "coin" like shadow feel during rotation
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
+                    color: Colors.white,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.pink.withOpacity(0.3),
+                        color: Colors.pink.withValues(alpha: 0.3),
                         blurRadius: 15,
                         spreadRadius: 2,
                       )
                     ]
                   ),
-                  child: Icon(
-                    Icons.favorite,
-                    size: 80,
-                    // If the rotation is past 90 degrees (pi/2), we are seeing the "back" of the heart.
-                    // We can slightly dim the color to enhance the 3D effect.
-                    color: _heartRotationAnimation.value > math.pi / 2
-                        ? Colors.pink[300]
-                        : Colors.pink[400],
-                  ),
+                  child: isFront
+                      // Front Side: The Heart
+                      ? Center(
+                          child: Icon(
+                            Icons.favorite,
+                            size: 80,
+                            color: Colors.pink[400],
+                          ),
+                        )
+                      // Back Side: The Emotion Value (Percentage)
+                      : Transform(
+                          // Crucial: Rotate 180 degrees back on the Y-axis.
+                          // Because the parent container is flipped (showing us its back),
+                          // any text inside will appear mirrored (backwards).
+                          // This inner rotation cancels out the mirroring so the text is readable.
+                          transform: Matrix4.rotationY(math.pi),
+                          alignment: Alignment.center,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text(
+                                '99%',
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFFFF4D85),
+                                ),
+                              ),
+                              Text(
+                                '心动值',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.pink[200],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                 ),
               );
             },
@@ -176,7 +214,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
+              color: Colors.grey.withValues(alpha: 0.2),
               spreadRadius: 2,
               blurRadius: 10,
               offset: const Offset(0, 3),

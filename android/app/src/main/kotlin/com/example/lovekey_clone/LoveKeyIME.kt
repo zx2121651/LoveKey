@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.lazy.items
@@ -33,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.text.font.FontWeight
@@ -302,6 +304,18 @@ fun LoveKeyKeyboardUI(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
+                // Breathing Animation logic for long drafts
+                val isLongDraft = draftText.length >= 10
+                val infiniteTransition = rememberInfiniteTransition()
+                val scale by infiniteTransition.animateFloat(
+                    initialValue = 1f,
+                    targetValue = if (isLongDraft) 1.08f else 1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(800, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    )
+                )
+
                 // ✨换个说法 (The single entry point)
                 Button(
                     onClick = {
@@ -313,7 +327,12 @@ fun LoveKeyKeyboardUI(
                     colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF8A9CFF)),
                     shape = RoundedCornerShape(18.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                    modifier = Modifier.height(32.dp),
+                    modifier = Modifier
+                        .height(32.dp)
+                        .graphicsLayer(
+                            scaleX = scale,
+                            scaleY = scale
+                        ),
                     elevation = ButtonDefaults.elevation(2.dp)
                 ) {
                     Text("✨换个说法", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)

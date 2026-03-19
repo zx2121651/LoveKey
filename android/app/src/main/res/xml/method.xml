@@ -1,7 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- This XML file tells the Android system about our custom keyboard (InputMethodService).
+     It is referenced in the <meta-data> of AndroidManifest.xml.
+     Without this, the keyboard will not show up in the System Settings -> Virtual Keyboard menu. -->
 <input-method xmlns:android="http://schemas.android.com/apk/res/android"
-    android:isDefault="false">
+    android:isDefault="false"
+    android:supportsSwitchingToNextInputMethod="true">
+
+    <!-- Define the supported languages and modes. Here we define standard US/English and Chinese as a placeholder. -->
     <subtype
+        android:icon="@mipmap/ic_launcher"
+        android:imeSubtypeLocale="en_US"
+        android:imeSubtypeMode="keyboard" />
+
+    <subtype
+        android:icon="@mipmap/ic_launcher"
         android:imeSubtypeLocale="zh_CN"
         android:imeSubtypeMode="keyboard" />
 </input-method>

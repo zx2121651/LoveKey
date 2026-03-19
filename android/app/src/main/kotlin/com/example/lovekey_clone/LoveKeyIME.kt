@@ -7,23 +7,31 @@ import android.widget.FrameLayout
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class LoveKeyIME : InputMethodService() {
 
@@ -51,7 +59,11 @@ class LoveKeyIME : InputMethodService() {
                 MaterialTheme {
                     LoveKeyKeyboardUI(
                         onCommitText = { text -> currentInputConnection?.commitText(text, 1) },
-                        onDelete = { currentInputConnection?.deleteSurroundingText(1, 0) }
+                        onDelete = { currentInputConnection?.deleteSurroundingText(1, 0) },
+                        onGetContextText = {
+                            val textBefore = currentInputConnection?.getTextBeforeCursor(100, 0)?.toString() ?: ""
+                            textBefore
+                        }
                     )
                 }
             }
@@ -85,8 +97,21 @@ class LoveKeyIME : InputMethodService() {
 @Composable
 fun LoveKeyKeyboardUI(
     onCommitText: (String) -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onGetContextText: () -> String
 ) {
+    var isGenerating by remember { mutableStateOf(false) }
+    var showPersonas by remember { mutableStateOf(false) }
+    var selectedPersona by remember { mutableStateOf("贴心暖男") }
+
+    val coroutineScope = rememberCoroutineScope()
+
+    val personas = listOf("贴心暖男", "幽默逗比", "高冷霸总", "绿茶杀手", "土味情话")
+    val quickQuotes = listOf(
+        "早安，昨晚睡得好吗？", "你今天有点好看哦", "突然好想你",
+        "在干嘛呢？", "周末有空一起看电影吗？", "晚安，梦里见"
+    )
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -111,7 +136,25 @@ fun LoveKeyKeyboardUI(
             Spacer(modifier = Modifier.width(10.dp))
 
             Button(
-                onClick = { onCommitText("我觉得你说的很有道理，那么周末要不要出来喝杯咖啡继续聊？") },
+                onClick = {
+                    if (isGenerating) return@Button
+                    coroutineScope.launch {
+                        isGenerating = true
+                        val contextText = onGetContextText()
+
+                        // Simulate network delay for AI thinking
+                        delay(1500)
+
+                        val reply = if (contextText.isEmpty()) {
+                            "【根据 $selectedPersona 人设生成的开场白】最近是不是很忙呀？"
+                        } else {
+                            "【根据 $selectedPersona 人设针对'$contextText'生成的回复】哈哈，你也太会说了吧。"
+                        }
+
+                        isGenerating = false
+                        onCommitText(reply)
+                    }
+                },
                 colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFFFF4D85)),
                 shape = RoundedCornerShape(18.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
@@ -123,72 +166,110 @@ fun LoveKeyKeyboardUI(
             Spacer(modifier = Modifier.width(10.dp))
 
             Button(
-                onClick = { onCommitText("【正在使用：贴心暖男 人设】") },
-                colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFFFFF0F5)),
+                onClick = { showPersonas = !showPersonas },
+                colors = ButtonDefaults.buttonColors(
+                    backgroundColor = if (showPersonas) Color(0xFFFF4D85) else Color(0xFFFFF0F5)
+                ),
                 elevation = ButtonDefaults.elevation(0.dp),
                 shape = RoundedCornerShape(18.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                 modifier = Modifier.height(36.dp)
             ) {
-                Text("恋爱人设", color = Color(0xFFFF4D85), fontSize = 12.sp)
+                Text(
+                    text = selectedPersona,
+                    color = if (showPersonas) Color.White else Color(0xFFFF4D85),
+                    fontSize = 12.sp
+                )
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
-            IconButton(onClick = { /* More options */ }) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = "More",
-                    tint = Color(0xFF888888)
-                )
+            IconButton(onClick = onDelete) {
+                Text("⌫", color = Color(0xFF888888), fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
         }
 
         Divider(color = Color(0xFFE0E0E0), thickness = 1.dp)
 
-        // Keyboard Area Simulation (Simplified)
-        Column(
+        // Persona Horizontal Selector
+        if (showPersonas) {
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .padding(vertical = 8.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(personas) { persona ->
+                    val isSelected = persona == selectedPersona
+                    Text(
+                        text = persona,
+                        fontSize = 14.sp,
+                        color = if (isSelected) Color.White else Color.Black,
+                        modifier = Modifier
+                            .background(
+                                color = if (isSelected) Color(0xFFFF4D85) else Color(0xFFF3F4F6),
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .clickable {
+                                selectedPersona = persona
+                                showPersonas = false
+                            }
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            }
+            Divider(color = Color(0xFFE0E0E0), thickness = 1.dp)
+        }
+
+        // Keyboard Body Area
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
+                .height(220.dp)
                 .padding(10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = "LoveKey Compose 键盘模块已激活",
-                color = Color(0xFF888888),
-                fontSize = 14.sp,
-                modifier = Modifier.padding(bottom = 20.dp)
-            )
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                QuickQuoteButton(
-                    text = "早安，昨晚睡得好吗？",
-                    onClick = { onCommitText("早安，昨晚睡得好吗？") },
-                    modifier = Modifier.weight(1f).padding(end = 5.dp)
-                )
-                QuickQuoteButton(
-                    text = "你今天有点好看哦",
-                    onClick = { onCommitText("你今天有点好看哦") },
-                    modifier = Modifier.weight(1f).padding(start = 5.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                QuickQuoteButton(
-                    text = "突然好想你",
-                    onClick = { onCommitText("突然好想你") },
-                    modifier = Modifier.weight(1f).padding(end = 5.dp)
-                )
-                Button(
-                    onClick = onDelete,
-                    colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFFDDDDDD)),
-                    modifier = Modifier.width(60.dp).padding(start = 5.dp)
-                ) {
-                    Text("⌫", color = Color(0xFF333333))
+            if (isGenerating) {
+                // Loading State
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = Color(0xFFFF4D85))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("AI 正在根据对方的话思考高情商回复...", color = Color(0xFF888888), fontSize = 14.sp)
+                }
+            } else {
+                // Quick Quotes Grid
+                Column {
+                    Text(
+                        "试试快捷土味情话 (或点击上方 AI 帮我回)",
+                        color = Color(0xFF888888),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
+                    )
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(quickQuotes) { quote ->
+                            Button(
+                                onClick = { onCommitText(quote) },
+                                colors = ButtonDefaults.buttonColors(backgroundColor = Color.White),
+                                elevation = ButtonDefaults.elevation(defaultElevation = 1.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(48.dp)
+                            ) {
+                                Text(
+                                    text = quote,
+                                    color = Color(0xFF333333),
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

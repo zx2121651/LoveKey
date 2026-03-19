@@ -9,6 +9,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -46,10 +49,24 @@ class LoveKeyIME : InputMethodService() {
 
     private lateinit var lifecycleOwner: IMELifecycleOwner
 
+    // Mutable state to hold the text before the cursor
+    private val currentDraftText = mutableStateOf("")
+
     override fun onCreate() {
         super.onCreate()
         lifecycleOwner = IMELifecycleOwner()
         lifecycleOwner.onCreate()
+    }
+
+    override fun onUpdateSelection(
+        oldSelStart: Int, oldSelEnd: Int,
+        newSelStart: Int, newSelEnd: Int,
+        candidatesStart: Int, candidatesEnd: Int
+    ) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        // Extract up to 100 characters before the cursor as the draft
+        val textBefore = currentInputConnection?.getTextBeforeCursor(100, 0)?.toString() ?: ""
+        currentDraftText.value = textBefore
     }
 
     override fun onCreateInputView(): View {
@@ -62,12 +79,16 @@ class LoveKeyIME : InputMethodService() {
         val composeView = ComposeView(this).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
+                val draft = currentDraftText.value
                 MaterialTheme {
                     LoveKeyKeyboardUI(
+                        draftText = draft,
                         onCommitText = { text -> currentInputConnection?.commitText(text, 1) },
                         onDelete = { currentInputConnection?.deleteSurroundingText(1, 0) },
-                        onGetContextText = {
-                            currentInputConnection?.getTextBeforeCursor(100, 0)?.toString() ?: ""
+                        onReplaceDraft = { replacement ->
+                            // Delete the current draft and insert the replacement
+                            currentInputConnection?.deleteSurroundingText(draft.length, 0)
+                            currentInputConnection?.commitText(replacement, 1)
                         },
                         onPerformAction = {
                             currentInputConnection?.performEditorAction(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH)
@@ -103,13 +124,14 @@ class LoveKeyIME : InputMethodService() {
 
 @Composable
 fun LoveKeyKeyboardUI(
+    draftText: String,
     onCommitText: (String) -> Unit,
     onDelete: () -> Unit,
-    onGetContextText: () -> String,
+    onReplaceDraft: (String) -> Unit,
     onPerformAction: () -> Unit
 ) {
     var isGenerating by remember { mutableStateOf(false) }
-    var activeTab by remember { mutableStateOf("keyboard") } // keyboard, ai_reply, quick_reply, custom_prompt
+    var activeTab by remember { mutableStateOf("keyboard") } // keyboard, ai_reply, quick_reply, custom_prompt, refine_draft
     var selectedPersona by remember { mutableStateOf("通用") }
     var selectedQuickReplyCategory by remember { mutableStateOf("高情商") }
     var customPromptText by remember { mutableStateOf("") }
@@ -204,6 +226,30 @@ fun LoveKeyKeyboardUI(
             }
 
             Spacer(modifier = Modifier.weight(1f))
+
+            // ✨换个说法
+            AnimatedVisibility(
+                visible = draftText.isNotEmpty(),
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                Button(
+                    onClick = {
+                        checkAndUseFeature {
+                            activeTab = "refine_draft"
+                            isGenerating = true
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF8A9CFF)),
+                    shape = RoundedCornerShape(18.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                    modifier = Modifier.height(32.dp).padding(end = 8.dp),
+                    elevation = ButtonDefaults.elevation(2.dp)
+                ) {
+                    Text("✨换个说法", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
 
             // History Icon
             Box(
@@ -355,6 +401,102 @@ fun LoveKeyKeyboardUI(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "More", tint = Color(0xFF888888))
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (activeTab == "refine_draft") {
+            // Refine Draft Mode
+            // Simulate generation
+            var refinedResults by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
+
+            LaunchedEffect(Unit) {
+                if (isGenerating) {
+                    refinedResults = emptyList()
+                    delay(1500) // fake delay
+                    refinedResults = listOf(
+                        Pair("高情商", "原来是这样，那我可要好好表现一下了~"),
+                        Pair("幽默", "大师，我悟了！"),
+                        Pair("拉扯感", "那就要看你表现咯...")
+                    )
+                    isGenerating = false
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                    .background(Color(0xFFF3F4F6))
+                    .height(300.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "✨ 为你润色草稿",
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 18.sp,
+                        color = Color(0xFF333333)
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = Color(0xFF888888),
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clickable { activeTab = "keyboard" }
+                    )
+                }
+
+                if (isGenerating) {
+                    // Loading State
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = Color(0xFF8A9CFF), modifier = Modifier.size(48.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("AI 恋爱专家正在分析...", color = Color(0xFF888888), fontSize = 14.sp)
+                        }
+                    }
+                } else {
+                    // List of Refined Replies
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(refinedResults) { replyPair ->
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color.White, RoundedCornerShape(12.dp))
+                                    .clickable {
+                                        onReplaceDraft(replyPair.second)
+                                        activeTab = "keyboard"
+                                    }
+                                    .padding(16.dp)
+                            ) {
+                                Column {
+                                    Text(
+                                        text = replyPair.first,
+                                        color = Color(0xFFFFA000),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = replyPair.second,
+                                        color = Color(0xFF333333),
+                                        fontSize = 15.sp,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
                             }
                         }
                     }

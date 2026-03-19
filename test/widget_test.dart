@@ -8,7 +8,7 @@ void main() {
     await tester.pumpWidget(const LoveKeyApp());
 
     // Verify that we start on the Onboarding screen.
-    expect(find.text('AI 恋爱键盘'), findsWidgets);
+    expect(find.text('第一步：开启键盘'), findsWidgets);
     expect(find.text('跳过'), findsOneWidget);
 
     // Tap '跳过' to go to MainScreen

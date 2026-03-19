@@ -7,7 +7,10 @@ class KeyboardScreen extends StatefulWidget {
   State<KeyboardScreen> createState() => _KeyboardScreenState();
 }
 
-class _KeyboardScreenState extends State<KeyboardScreen> {
+class _KeyboardScreenState extends State<KeyboardScreen> with TickerProviderStateMixin {
+  final GlobalKey _myKeyboardKey = GlobalKey();
+  late final List<GlobalKey> _iconKeys;
+
   final List<Map<String, dynamic>> personas = [
     {'title': '恋爱大师', 'subtitle': '精通恋爱技巧了解人心', 'icon': Icons.favorite_border, 'added': true},
     {'title': '情场高手', 'subtitle': '深谙情场之道，游刃有余', 'icon': Icons.psychology, 'added': true},
@@ -19,9 +22,46 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
     {'title': '贴心暖男', 'subtitle': '心思细腻，总是给予关怀', 'icon': Icons.wb_sunny, 'added': true},
   ];
 
-  void _togglePersonaStatus(int index) {
+  @override
+  void initState() {
+    super.initState();
+    _iconKeys = List.generate(personas.length, (index) => GlobalKey());
+  }
+
+  void _togglePersonaStatus(int index, GlobalKey iconKey) {
+    bool isCurrentlyAdded = personas[index]['added'];
     setState(() {
-      personas[index]['added'] = !personas[index]['added'];
+      personas[index]['added'] = !isCurrentlyAdded;
+    });
+
+    if (!isCurrentlyAdded) {
+      _runSuckAnimation(iconKey, personas[index]['icon'] as IconData);
+    }
+  }
+
+  void _runSuckAnimation(GlobalKey sourceKey, IconData iconData) {
+    final RenderBox? sourceBox = sourceKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? targetBox = _myKeyboardKey.currentContext?.findRenderObject() as RenderBox?;
+
+    if (sourceBox == null || targetBox == null) return;
+
+    final sourcePosition = sourceBox.localToGlobal(Offset.zero);
+    final targetPosition = targetBox.localToGlobal(targetBox.size.center(Offset.zero));
+
+    final overlayEntry = OverlayEntry(
+      builder: (context) => _SuckAnimationWidget(
+        startPosition: sourcePosition,
+        endPosition: targetPosition,
+        iconData: iconData,
+      ),
+    );
+
+    Overlay.of(context).insert(overlayEntry);
+
+    // Remove the overlay after animation completes
+    Future.delayed(const Duration(milliseconds: 600), () {
+      overlayEntry.remove();
+      // Optionally trigger a bounce on the target here
     });
   }
 
@@ -94,9 +134,9 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
                     color: const Color(0xFFEBF0FF),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Expanded(
+                      const Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -106,7 +146,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
                           ],
                         ),
                       ),
-                      Icon(Icons.keyboard, size: 20, color: Colors.blueAccent),
+                      Icon(Icons.keyboard, key: _myKeyboardKey, size: 20, color: Colors.blueAccent),
                     ],
                   ),
                 ),
@@ -174,6 +214,8 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
       itemBuilder: (context, index) {
         final persona = personas[index];
         final isAdded = persona['added'] as bool;
+        final GlobalKey iconKey = _iconKeys[index];
+
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -212,12 +254,13 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   CircleAvatar(
+                    key: iconKey,
                     radius: 14,
                     backgroundColor: Colors.grey[200],
                     child: Icon(persona['icon'] as IconData, size: 16, color: Colors.black54),
                   ),
                   GestureDetector(
-                    onTap: () => _togglePersonaStatus(index),
+                    onTap: () => _togglePersonaStatus(index, iconKey),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeOutBack,
@@ -249,6 +292,92 @@ class _KeyboardScreenState extends State<KeyboardScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+class _SuckAnimationWidget extends StatefulWidget {
+  final Offset startPosition;
+  final Offset endPosition;
+  final IconData iconData;
+
+  const _SuckAnimationWidget({
+    required this.startPosition,
+    required this.endPosition,
+    required this.iconData,
+  });
+
+  @override
+  State<_SuckAnimationWidget> createState() => _SuckAnimationWidgetState();
+}
+
+class _SuckAnimationWidgetState extends State<_SuckAnimationWidget> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _opacityAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.1).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.5, 1.0, curve: Curves.easeIn), // Shrink at the end
+      ),
+    );
+
+    _opacityAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.7, 1.0, curve: Curves.easeOut),
+      ),
+    );
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: widget.startPosition.dx,
+      top: widget.startPosition.dy,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          // Manually translating instead of SlideTransition for absolute pixels
+          return Transform.translate(
+            offset: Offset(
+              (widget.endPosition.dx - widget.startPosition.dx) * _controller.value,
+              (widget.endPosition.dy - widget.startPosition.dy) * _controller.value,
+            ),
+            child: Transform.scale(
+              scale: _scaleAnimation.value,
+              child: Opacity(
+                opacity: _opacityAnimation.value,
+                child: Material(
+                  color: Colors.transparent,
+                  child: CircleAvatar(
+                    radius: 14,
+                    backgroundColor: Colors.pink[100],
+                    child: Icon(widget.iconData, size: 16, color: Colors.pink),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

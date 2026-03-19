@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'counselor_screen.dart';
 
 import 'package:flutter/services.dart';
+import 'dart:math' as math;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -10,21 +11,31 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   late AnimationController _heartAnimationController;
   late Animation<double> _heartScaleAnimation;
+  late Animation<double> _heartRotationAnimation;
 
   @override
   void initState() {
     super.initState();
+
+    // Heartbeat & Rotation Controller
     _heartAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    )..repeat(reverse: true);
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true); // repeats endlessly
 
+    // 1. Scale Animation (2D heart beat)
     _heartScaleAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
       CurvedAnimation(parent: _heartAnimationController, curve: Curves.easeInOutCubic),
+    );
+
+    // 2. 3D Rotation Animation (Y-axis flip, like a coin spinning)
+    // We animate from 0 to Pi (180 degrees)
+    _heartRotationAnimation = Tween<double>(begin: 0.0, end: math.pi).animate(
+      CurvedAnimation(parent: _heartAnimationController, curve: Curves.easeInOutSine),
     );
   }
 
@@ -113,14 +124,43 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               ),
             ],
           ),
-          // Beating heart animation
-          ScaleTransition(
-            scale: _heartScaleAnimation,
-            child: Icon(
-              Icons.favorite,
-              size: 80,
-              color: Colors.pink[400],
-            ),
+          // Beating heart with 3D Y-axis flip animation
+          AnimatedBuilder(
+            animation: _heartAnimationController,
+            builder: (context, child) {
+              // Create a 3D perspective matrix
+              final transform = Matrix4.identity()
+                ..setEntry(3, 2, 0.0015) // depth perspective
+                ..rotateY(_heartRotationAnimation.value) // flip on Y axis
+                ..scale(_heartScaleAnimation.value, _heartScaleAnimation.value); // heartbeat scale
+
+              return Transform(
+                transform: transform,
+                alignment: Alignment.center,
+                child: Container(
+                  // We use a container with decoration to give the heart a "coin" like shadow feel during rotation
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.pink.withOpacity(0.3),
+                        blurRadius: 15,
+                        spreadRadius: 2,
+                      )
+                    ]
+                  ),
+                  child: Icon(
+                    Icons.favorite,
+                    size: 80,
+                    // If the rotation is past 90 degrees (pi/2), we are seeing the "back" of the heart.
+                    // We can slightly dim the color to enhance the 3D effect.
+                    color: _heartRotationAnimation.value > math.pi / 2
+                        ? Colors.pink[300]
+                        : Colors.pink[400],
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),

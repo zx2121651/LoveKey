@@ -8,11 +8,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.List
@@ -105,8 +109,26 @@ fun LoveKeyKeyboardUI(
     onPerformAction: () -> Unit
 ) {
     var isGenerating by remember { mutableStateOf(false) }
-    var activeTab by remember { mutableStateOf("keyboard") } // keyboard, ai_reply
+    var activeTab by remember { mutableStateOf("keyboard") } // keyboard, ai_reply, quick_reply, custom_prompt
     var selectedPersona by remember { mutableStateOf("通用") }
+    var selectedQuickReplyCategory by remember { mutableStateOf("高情商") }
+    var customPromptText by remember { mutableStateOf("") }
+
+    // VIP and Usage logic
+    var isVip by remember { mutableStateOf(false) }
+    var freeUsageCount by remember { mutableStateOf(3) }
+    var showPaywall by remember { mutableStateOf(false) }
+
+    fun checkAndUseFeature(action: () -> Unit) {
+        if (isVip) {
+            action()
+        } else if (freeUsageCount > 0) {
+            freeUsageCount--
+            action()
+        } else {
+            showPaywall = true
+        }
+    }
 
     val coroutineScope = rememberCoroutineScope()
 
@@ -149,7 +171,9 @@ fun LoveKeyKeyboardUI(
 
             // 帮你回
             Button(
-                onClick = { /* Action for 帮你回 */ },
+                onClick = {
+                    activeTab = if (activeTab == "quick_reply") "keyboard" else "quick_reply"
+                },
                 colors = ButtonDefaults.buttonColors(backgroundColor = Color.White),
                 shape = RoundedCornerShape(18.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
@@ -164,7 +188,11 @@ fun LoveKeyKeyboardUI(
             // 超会说
             Button(
                 onClick = {
-                    activeTab = if (activeTab == "ai_reply") "keyboard" else "ai_reply"
+                    if (activeTab != "ai_reply") {
+                        checkAndUseFeature { activeTab = "ai_reply" }
+                    } else {
+                        activeTab = "keyboard"
+                    }
                 },
                 colors = ButtonDefaults.buttonColors(backgroundColor = Color.White),
                 shape = RoundedCornerShape(18.dp),
@@ -191,16 +219,22 @@ fun LoveKeyKeyboardUI(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // Apps Grid Icon
+            // Apps Grid Icon / AI Icon
             Box(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
                     .background(Color.White)
-                    .clickable { /* Apps */ },
+                    .clickable {
+                        if (activeTab != "custom_prompt") {
+                            checkAndUseFeature { activeTab = "custom_prompt" }
+                        } else {
+                            activeTab = "keyboard"
+                        }
+                    },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(imageVector = Icons.Default.MoreVert, contentDescription = "Apps", tint = Color(0xFF888888), modifier = Modifier.size(20.dp))
+                Icon(imageVector = Icons.Default.Edit, contentDescription = "AI Prompt", tint = Color(0xFF888888), modifier = Modifier.size(20.dp))
             }
 
             Spacer(modifier = Modifier.width(8.dp))
@@ -326,12 +360,163 @@ fun LoveKeyKeyboardUI(
                     }
                 }
             }
+        } else if (activeTab == "custom_prompt") {
+            // Custom Prompt Mode ("AI 图标")
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                    .background(Color.White)
+                    .height(300.dp)
+                    .padding(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "写下你的草稿或意图",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = Color(0xFF333333)
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = Color(0xFF888888),
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clickable { activeTab = "keyboard" }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = customPromptText,
+                    onValueChange = { customPromptText = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    placeholder = { Text("例如：告诉老板我今天病了请假一天，语气委婉一点", color = Color(0xFF999999), fontSize = 14.sp) },
+                    colors = TextFieldDefaults.outlinedTextFieldColors(
+                        backgroundColor = Color(0xFFF3F4F6),
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedBorderColor = Color(0xFF8A9CFF)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = {
+                        if (customPromptText.isNotEmpty()) {
+                            isGenerating = true
+                            // Simulate network request
+                            coroutineScope.launch {
+                                delay(1500) // fake delay
+                                onCommitText("老板您好，非常抱歉打扰您。我今天身体很不舒服，需要请假一天去医院检查。希望能得到您的批准，手头的工作我已经和同事交接好了。")
+                                isGenerating = false
+                                activeTab = "keyboard"
+                                customPromptText = ""
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF8A9CFF)),
+                    shape = RoundedCornerShape(24.dp),
+                    enabled = !isGenerating
+                ) {
+                    if (isGenerating) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                    } else {
+                        Text("帮我润色", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         } else {
             // T9 Keyboard Mode
             T9KeyboardGrid(onCommitText = onCommitText, onDelete = onDelete, onPerformAction = onPerformAction)
         }
+
+        // Paywall Overlay
+        if (showPaywall) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(300.dp) // matches the height of the keyboard overlays
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .clickable(enabled = true, onClick = { /* consume click to prevent interactions underneath */ }),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth(0.85f)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.White)
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = Color(0xFF888888),
+                        modifier = Modifier
+                            .size(24.dp)
+                            .align(Alignment.End)
+                            .clickable { showPaywall = false }
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "免费次数已用完",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = Color(0xFF333333)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "升级高级版，解锁无限次 AI 对话、100+高情商人设及专属自定义指令。",
+                        color = Color(0xFF666666),
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Button(
+                        onClick = {
+                            isVip = true
+                            showPaywall = false
+                        },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFFFFA000)),
+                        shape = RoundedCornerShape(24.dp)
+                    ) {
+                        Text("¥28 / 月  立即解锁", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "¥98 / 永久买断",
+                        color = Color(0xFF999999),
+                        fontSize = 14.sp,
+                        modifier = Modifier.clickable {
+                            isVip = true
+                            showPaywall = false
+                        }
+                    )
+                }
+            }
+        }
+        } // End of Box Stack
     }
-}
 
 @Composable
 fun T9KeyboardGrid(onCommitText: (String) -> Unit, onDelete: () -> Unit, onPerformAction: () -> Unit) {

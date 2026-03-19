@@ -3,6 +3,7 @@ import 'screens/home_screen.dart';
 import 'screens/keyboard_screen.dart';
 import 'screens/scripts_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/onboarding_screen.dart';
 
 void main() {
   runApp(const LoveKeyApp());
@@ -24,7 +25,7 @@ class LoveKeyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const MainScreen(),
+      home: const OnboardingScreen(),
     );
   }
 }

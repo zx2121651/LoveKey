@@ -214,7 +214,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5)),
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 5)),
                     ],
                   ),
                   child: Column(
@@ -230,7 +230,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               Positioned(
                 bottom: 5,
                 left: 45,
-                child: Icon(Icons.touch_app, size: 40, color: const Color(0xFFFF4D85).withOpacity(0.8)),
+                child: Icon(Icons.touch_app, size: 40, color: const Color(0xFFFF4D85).withValues(alpha: 0.8)),
               ),
             ],
           ),
@@ -354,7 +354,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             borderRadius: BorderRadius.circular(28),
           ),
           elevation: 4,
-          shadowColor: const Color(0xFFFF4D85).withOpacity(0.5),
+          shadowColor: const Color(0xFFFF4D85).withValues(alpha: 0.5),
         ),
       ),
     );

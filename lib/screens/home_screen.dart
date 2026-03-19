@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'counselor_screen.dart';
 
 import 'package:flutter/services.dart';
+import 'dart:math' as math;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -10,21 +11,31 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   late AnimationController _heartAnimationController;
   late Animation<double> _heartScaleAnimation;
+  late Animation<double> _heartRotationAnimation;
 
   @override
   void initState() {
     super.initState();
+
+    // Heartbeat & Rotation Controller
     _heartAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    )..repeat(reverse: true);
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true); // repeats endlessly
 
+    // 1. Scale Animation (2D heart beat)
     _heartScaleAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
       CurvedAnimation(parent: _heartAnimationController, curve: Curves.easeInOutCubic),
+    );
+
+    // 2. 3D Rotation Animation (Y-axis flip, like a coin spinning)
+    // We animate from 0 to Pi (180 degrees)
+    _heartRotationAnimation = Tween<double>(begin: 0.0, end: math.pi).animate(
+      CurvedAnimation(parent: _heartAnimationController, curve: Curves.easeInOutSine),
     );
   }
 
@@ -113,14 +124,81 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               ),
             ],
           ),
-          // Beating heart animation
-          ScaleTransition(
-            scale: _heartScaleAnimation,
-            child: Icon(
-              Icons.favorite,
-              size: 80,
-              color: Colors.pink[400],
-            ),
+          // Beating 3D Emotion Value Coin flip animation
+          AnimatedBuilder(
+            animation: _heartAnimationController,
+            builder: (context, child) {
+              final angle = _heartRotationAnimation.value;
+              final isFront = angle <= math.pi / 2;
+
+              // Create a 3D perspective matrix
+              final transform = Matrix4.identity()
+                ..setEntry(3, 2, 0.0015) // depth perspective
+                ..rotateY(angle); // flip on Y axis
+
+              // Scale matrix
+              transform.scale(_heartScaleAnimation.value, _heartScaleAnimation.value);
+
+              return Transform(
+                transform: transform,
+                alignment: Alignment.center,
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  // We use a container with decoration to give the heart a "coin" like shadow feel during rotation
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.pink.withValues(alpha: 0.3),
+                        blurRadius: 15,
+                        spreadRadius: 2,
+                      )
+                    ]
+                  ),
+                  child: isFront
+                      // Front Side: The Heart
+                      ? Center(
+                          child: Icon(
+                            Icons.favorite,
+                            size: 80,
+                            color: Colors.pink[400],
+                          ),
+                        )
+                      // Back Side: The Emotion Value (Percentage)
+                      : Transform(
+                          // Crucial: Rotate 180 degrees back on the Y-axis.
+                          // Because the parent container is flipped (showing us its back),
+                          // any text inside will appear mirrored (backwards).
+                          // This inner rotation cancels out the mirroring so the text is readable.
+                          transform: Matrix4.rotationY(math.pi),
+                          alignment: Alignment.center,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text(
+                                '99%',
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFFFF4D85),
+                                ),
+                              ),
+                              Text(
+                                '心动值',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.pink[200],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -136,7 +214,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
+              color: Colors.grey.withValues(alpha: 0.2),
               spreadRadius: 2,
               blurRadius: 10,
               offset: const Offset(0, 3),

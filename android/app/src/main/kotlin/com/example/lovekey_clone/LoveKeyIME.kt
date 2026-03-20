@@ -54,10 +54,25 @@ class LoveKeyIME : InputMethodService() {
     // Mutable state to hold the text before the cursor
     private val currentDraftText = mutableStateOf("")
 
+    // State backed by the C++ Rime Engine
+    private val currentComposingText = mutableStateOf("")
+    private val currentCandidates = mutableStateOf<List<String>>(emptyList())
+
+    // The JNI Wrapper instance
+    private val rimeEngine = RimeWrapper()
+
     override fun onCreate() {
         super.onCreate()
         lifecycleOwner = IMELifecycleOwner()
         lifecycleOwner.onCreate()
+
+        // In a real scenario, you'd extract your yaml files to `filesDir.absolutePath` first.
+        // rimeEngine.init(filesDir.absolutePath + "/rime_shared", filesDir.absolutePath + "/rime_user")
+        try {
+            rimeEngine.init("/mock/shared", "/mock/user")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override fun onUpdateSelection(
@@ -82,17 +97,88 @@ class LoveKeyIME : InputMethodService() {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 val draft = currentDraftText.value
+                val composing = currentComposingText.value
+                val candidates = currentCandidates.value
+
                 MaterialTheme {
                     LoveKeyKeyboardUI(
                         draftText = draft,
-                        onCommitText = { text -> currentInputConnection?.commitText(text, 1) },
-                        onDelete = { currentInputConnection?.deleteSurroundingText(1, 0) },
+                        composingText = composing,
+                        candidates = candidates,
+                        onKeyPress = { key ->
+                            // 1. Send the keycode to the RIME C++ Engine
+                            // Typically, key is "2", "3", etc. We pass its ASCII value.
+                            val keycode = key.firstOrNull()?.code ?: 0
+                            val handled = rimeEngine.processKey(keycode)
+
+                            if (handled) {
+                                // 2. Retrieve updated composition from engine
+                                currentComposingText.value = rimeEngine.getComposingText()
+                                currentInputConnection?.setComposingText(currentComposingText.value, 1)
+
+                                // 3. Retrieve updated candidates
+                                currentCandidates.value = rimeEngine.getCandidates().toList()
+                            } else {
+                                // Not handled by RIME, output directly
+                                currentInputConnection?.commitText(key, 1)
+                            }
+                        },
+                        onCommitCandidate = { candidate ->
+                            // 1. Find index
+                            val index = currentCandidates.value.indexOf(candidate)
+                            if (index != -1) {
+                                // 2. Tell RIME to commit this index
+                                val commitText = rimeEngine.selectCandidate(index)
+                                currentInputConnection?.commitText(commitText, 1)
+
+                                // 3. Update state
+                                currentComposingText.value = rimeEngine.getComposingText()
+                                if (currentComposingText.value.isEmpty()) {
+                                    currentCandidates.value = emptyList()
+                                } else {
+                                    currentInputConnection?.setComposingText(currentComposingText.value, 1)
+                                    currentCandidates.value = rimeEngine.getCandidates().toList()
+                                }
+                            } else {
+                                // Fallback
+                                currentInputConnection?.commitText(candidate, 1)
+                                rimeEngine.clear()
+                                currentComposingText.value = ""
+                                currentCandidates.value = emptyList()
+                            }
+                        },
+                        onDelete = {
+                            if (currentComposingText.value.isNotEmpty()) {
+                                // Send Backspace (Keycode 8) to RIME
+                                rimeEngine.processKey(8)
+                                currentComposingText.value = rimeEngine.getComposingText()
+                                currentCandidates.value = rimeEngine.getCandidates().toList()
+
+                                if (currentComposingText.value.isEmpty()) {
+                                    currentInputConnection?.commitText("", 1) // Clear UI state
+                                } else {
+                                    currentInputConnection?.setComposingText(currentComposingText.value, 1)
+                                }
+                            } else {
+                                // Delete committed text
+                                currentInputConnection?.deleteSurroundingText(1, 0)
+                            }
+                        },
                         onReplaceDraft = { replacement ->
-                            // Delete the current draft and insert the replacement
+                            rimeEngine.clear()
+                            currentComposingText.value = ""
+                            currentCandidates.value = emptyList()
+
                             currentInputConnection?.deleteSurroundingText(draft.length, 0)
                             currentInputConnection?.commitText(replacement, 1)
                         },
                         onPerformAction = {
+                            if (currentComposingText.value.isNotEmpty()) {
+                                rimeEngine.clear()
+                                currentInputConnection?.commitText(currentComposingText.value, 1)
+                                currentComposingText.value = ""
+                                currentCandidates.value = emptyList()
+                            }
                             currentInputConnection?.performEditorAction(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH)
                         }
                     )
@@ -127,7 +213,10 @@ class LoveKeyIME : InputMethodService() {
 @Composable
 fun LoveKeyKeyboardUI(
     draftText: String,
-    onCommitText: (String) -> Unit,
+    composingText: String,
+    candidates: List<String>,
+    onKeyPress: (String) -> Unit,
+    onCommitCandidate: (String) -> Unit,
     onDelete: () -> Unit,
     onReplaceDraft: (String) -> Unit,
     onPerformAction: () -> Unit
@@ -174,7 +263,7 @@ fun LoveKeyKeyboardUI(
             .padding(bottom = 8.dp) // Slight bottom padding
     ) {
         // Dynamic Top Area: Toolbar OR Candidate/Refine View
-        if (draftText.isEmpty()) {
+        if (draftText.isEmpty() && composingText.isEmpty()) {
             // Top Toolbar (Default state when no draft)
             Row(
                 modifier = Modifier
@@ -286,8 +375,7 @@ fun LoveKeyKeyboardUI(
                     .padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Mock Candidate Words
-                val candidates = listOf("你好", "好啊", "好的呢", "是的")
+                // Candidates from the Mini T9 Dictionary
                 LazyRow(
                     modifier = Modifier.weight(1f),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -297,7 +385,7 @@ fun LoveKeyKeyboardUI(
                             text = word,
                             color = Color(0xFF333333),
                             fontSize = 16.sp,
-                            modifier = Modifier.clickable { onCommitText(word) }.padding(vertical = 8.dp)
+                            modifier = Modifier.clickable { onCommitCandidate(word) }.padding(vertical = 8.dp)
                         )
                     }
                 }
@@ -400,7 +488,7 @@ fun LoveKeyKeyboardUI(
                                 .fillMaxWidth()
                                 .background(Color.White, RoundedCornerShape(12.dp))
                                 .clickable {
-                                    onCommitText(replyPair.second)
+                                    onCommitCandidate(replyPair.second)
                                     activeTab = "keyboard"
                                 }
                                 .padding(16.dp)
@@ -601,7 +689,7 @@ fun LoveKeyKeyboardUI(
                             // Simulate network request
                             coroutineScope.launch {
                                 delay(1500) // fake delay
-                                onCommitText("老板您好，非常抱歉打扰您。我今天身体很不舒服，需要请假一天去医院检查。希望能得到您的批准，手头的工作我已经和同事交接好了。")
+                                onCommitCandidate("老板您好，非常抱歉打扰您。我今天身体很不舒服，需要请假一天去医院检查。希望能得到您的批准，手头的工作我已经和同事交接好了。")
                                 isGenerating = false
                                 activeTab = "keyboard"
                                 customPromptText = ""
@@ -622,7 +710,7 @@ fun LoveKeyKeyboardUI(
             }
         } else {
             // T9 Keyboard Mode
-            T9KeyboardGrid(onCommitText = onCommitText, onDelete = onDelete, onPerformAction = onPerformAction)
+            T9KeyboardGrid(onKeyPress = onKeyPress, onDelete = onDelete, onPerformAction = onPerformAction)
         }
 
         // Paywall Overlay
@@ -703,14 +791,7 @@ fun LoveKeyKeyboardUI(
     }
 
 @Composable
-fun T9KeyboardGrid(onCommitText: (String) -> Unit, onDelete: () -> Unit, onPerformAction: () -> Unit) {
-    val rows = listOf(
-        listOf(",", "@#", "ABC", "DEF", "DELETE"),
-        listOf("。", "GHI", "JKL", "MNO", "ENTER"),
-        listOf("?", "PQRS", "TUV", "WXYZ", "ACTION"),
-        listOf("!", "123", "SPACE", "中/英", "ACTION")
-    )
-
+fun T9KeyboardGrid(onKeyPress: (String) -> Unit, onDelete: () -> Unit, onPerformAction: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -721,20 +802,20 @@ fun T9KeyboardGrid(onCommitText: (String) -> Unit, onDelete: () -> Unit, onPerfo
 
         // Row 1
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-            KeyButton(text = ",", modifier = Modifier.weight(1f), bgColor = Color(0xFFB0B3BE), onClick = { onCommitText(",") })
-            KeyButton(text = "@#", modifier = Modifier.weight(1.5f), onClick = { onCommitText("@#") })
-            KeyButton(text = "ABC", modifier = Modifier.weight(1.5f), onClick = { onCommitText("abc") })
-            KeyButton(text = "DEF", modifier = Modifier.weight(1.5f), onClick = { onCommitText("def") })
+            KeyButton(text = ",", modifier = Modifier.weight(1f), bgColor = Color(0xFFB0B3BE), onClick = { onKeyPress(",") })
+            KeyButton(text = "@#", modifier = Modifier.weight(1.5f), onClick = { onKeyPress("@#") })
+            KeyButton(text = "ABC\n2", modifier = Modifier.weight(1.5f), onClick = { onKeyPress("2") })
+            KeyButton(text = "DEF\n3", modifier = Modifier.weight(1.5f), onClick = { onKeyPress("3") })
             KeyButton(text = "⌫", modifier = Modifier.weight(1.2f), bgColor = Color(0xFFB0B3BE), onClick = onDelete)
         }
 
         // Row 2
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-            KeyButton(text = "。", modifier = Modifier.weight(1f), bgColor = Color(0xFFB0B3BE), onClick = { onCommitText("。") })
-            KeyButton(text = "GHI", modifier = Modifier.weight(1.5f), onClick = { onCommitText("ghi") })
-            KeyButton(text = "JKL", modifier = Modifier.weight(1.5f), onClick = { onCommitText("jkl") })
-            KeyButton(text = "MNO", modifier = Modifier.weight(1.5f), onClick = { onCommitText("mno") })
-            KeyButton(text = "换行", modifier = Modifier.weight(1.2f), bgColor = Color(0xFFB0B3BE), onClick = { onCommitText("\n") })
+            KeyButton(text = "。", modifier = Modifier.weight(1f), bgColor = Color(0xFFB0B3BE), onClick = { onKeyPress("。") })
+            KeyButton(text = "GHI\n4", modifier = Modifier.weight(1.5f), onClick = { onKeyPress("4") })
+            KeyButton(text = "JKL\n5", modifier = Modifier.weight(1.5f), onClick = { onKeyPress("5") })
+            KeyButton(text = "MNO\n6", modifier = Modifier.weight(1.5f), onClick = { onKeyPress("6") })
+            KeyButton(text = "换行", modifier = Modifier.weight(1.2f), bgColor = Color(0xFFB0B3BE), onClick = { onKeyPress("\n") })
         }
 
         // Row 3 & 4 need special handling for the tall "搜索" (Search) button
@@ -743,16 +824,16 @@ fun T9KeyboardGrid(onCommitText: (String) -> Unit, onDelete: () -> Unit, onPerfo
             Column(modifier = Modifier.weight(5.5f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 // Row 3 left
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth().height(48.dp)) {
-                    KeyButton(text = "?", modifier = Modifier.weight(1f), bgColor = Color(0xFFB0B3BE), onClick = { onCommitText("?") })
-                    KeyButton(text = "PQRS", modifier = Modifier.weight(1.5f), onClick = { onCommitText("pqrs") })
-                    KeyButton(text = "TUV", modifier = Modifier.weight(1.5f), onClick = { onCommitText("tuv") })
-                    KeyButton(text = "WXYZ", modifier = Modifier.weight(1.5f), onClick = { onCommitText("wxyz") })
+                    KeyButton(text = "?", modifier = Modifier.weight(1f), bgColor = Color(0xFFB0B3BE), onClick = { onKeyPress("?") })
+                    KeyButton(text = "PQRS\n7", modifier = Modifier.weight(1.5f), onClick = { onKeyPress("7") })
+                    KeyButton(text = "TUV\n8", modifier = Modifier.weight(1.5f), onClick = { onKeyPress("8") })
+                    KeyButton(text = "WXYZ\n9", modifier = Modifier.weight(1.5f), onClick = { onKeyPress("9") })
                 }
                 // Row 4 left
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth().height(48.dp)) {
-                    KeyButton(text = "!", modifier = Modifier.weight(1f), bgColor = Color(0xFFB0B3BE), onClick = { onCommitText("!") })
-                    KeyButton(text = "123", modifier = Modifier.weight(1.5f), onClick = { onCommitText("123") })
-                    KeyButton(text = "␣", modifier = Modifier.weight(3f), onClick = { onCommitText(" ") }) // Spacebar spans 2 columns
+                    KeyButton(text = "!", modifier = Modifier.weight(1f), bgColor = Color(0xFFB0B3BE), onClick = { onKeyPress("!") })
+                    KeyButton(text = "123", modifier = Modifier.weight(1.5f), onClick = { onKeyPress("123") })
+                    KeyButton(text = "␣", modifier = Modifier.weight(3f), onClick = { onKeyPress(" ") }) // Spacebar spans 2 columns
                     KeyButton(text = "中/英", modifier = Modifier.weight(1.5f), onClick = { /* Switch Lang */ })
                 }
             }

@@ -68,10 +68,10 @@ class _KeyboardScreenState extends State<KeyboardScreen> with TickerProviderStat
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF1A1528),
       appBar: AppBar(
         title: const Text('话术', style: TextStyle(color: Colors.black)), // Following App Store image style for top tab
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFF1A1528),
         elevation: 0,
         centerTitle: true,
       ),
@@ -109,12 +109,12 @@ class _KeyboardScreenState extends State<KeyboardScreen> with TickerProviderStat
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('定制专属人设', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const Text('为你量身打造', style: TextStyle(fontSize: 12, color: Colors.black54)),
+                  const Text('为你量身打造', style: TextStyle(fontSize: 12, color: Colors.white70)),
                   const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: const BoxDecoration(
-                      color: Colors.black,
+                      color: Colors.white,
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
                     child: const Text('去定制', style: TextStyle(color: Colors.white, fontSize: 12)),
@@ -142,7 +142,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> with TickerProviderStat
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text('我的键盘', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                            Text('查看已配置', style: TextStyle(fontSize: 9, color: Colors.black54)),
+                            Text('查看已配置', style: TextStyle(fontSize: 9, color: Colors.white70)),
                           ],
                         ),
                       ),
@@ -165,7 +165,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> with TickerProviderStat
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text('恋爱教程', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                            Text('经典恋爱案例', style: TextStyle(fontSize: 9, color: Colors.black54)),
+                            Text('经典恋爱案例', style: TextStyle(fontSize: 9, color: Colors.white70)),
                           ],
                         ),
                       ),
@@ -257,7 +257,7 @@ class _KeyboardScreenState extends State<KeyboardScreen> with TickerProviderStat
                     key: iconKey,
                     radius: 14,
                     backgroundColor: Colors.grey[200],
-                    child: Icon(persona['icon'] as IconData, size: 16, color: Colors.black54),
+                    child: Icon(persona['icon'] as IconData, size: 16, color: Colors.white70),
                   ),
                   GestureDetector(
                     onTap: () => _togglePersonaStatus(index, iconKey),

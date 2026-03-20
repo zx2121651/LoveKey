@@ -7,10 +7,10 @@ class ScriptsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF1A1528),
       appBar: AppBar(
         title: const Text('话术生成器', style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFF1A1528),
         elevation: 0,
         centerTitle: false,
       ),
@@ -195,7 +195,7 @@ class _BuildScriptDetailSheet extends StatelessWidget {
                       ),
                       const SizedBox(width: 10),
                       IconButton(
-                        icon: const Icon(Icons.copy, color: Colors.pink, size: 20),
+                        icon: const Icon(Icons.copy, color: const Color(0xFFFF2E54), size: 20),
                         onPressed: () => _copyToClipboard(context, mockSentences[index]),
                       ),
                     ],

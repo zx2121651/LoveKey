@@ -51,17 +51,29 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _screens[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: Theme.of(context).colorScheme.primary,
-        unselectedItemColor: Colors.grey,
-        items: const [
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: const Color(0xFFFF2E54).withValues(alpha: 0.2))),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFF2E54).withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            )
+          ]
+        ),
+        child: BottomNavigationBar(
+          backgroundColor: const Color(0xFF1A1528),
+          currentIndex: _currentIndex,
+          onTap: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+          type: BottomNavigationBarType.fixed,
+          selectedItemColor: const Color(0xFFFF2E54),
+          unselectedItemColor: Colors.white.withValues(alpha: 0.4),
+          items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
             activeIcon: Icon(Icons.home),
@@ -83,6 +95,7 @@ class _MainScreenState extends State<MainScreen> {
             label: '我的',
           ),
         ],
+      ),
       ),
     );
   }

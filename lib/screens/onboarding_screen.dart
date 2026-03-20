@@ -34,7 +34,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF0C0916),
       body: SafeArea(
         child: Column(
           children: [
@@ -66,9 +66,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         height: 8,
                         decoration: BoxDecoration(
                           color: _currentPage == index
-                              ? const Color(0xFFFF4D85)
-                              : Colors.grey[300],
+                              ? const Color(0xFFFF2E54)
+                              : Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(4),
+                          boxShadow: _currentPage == index ? [
+                            BoxShadow(color: const Color(0xFFFF2E54).withValues(alpha: 0.5), blurRadius: 10)
+                          ] : null,
                         ),
                       ),
                     ),
@@ -214,7 +217,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 5)),
+                      BoxShadow(color: Colors.white.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 5)),
                     ],
                   ),
                   child: Column(
@@ -267,7 +270,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             decoration: BoxDecoration(
               color: const Color(0xFFF3F4F6),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.pink[100]!, width: 2),
+              border: Border.all(color: const Color(0xFFFF2E54), width: 2),
             ),
             child: const Row(
               children: [

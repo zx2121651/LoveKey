@@ -6,7 +6,7 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF1A1528),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
@@ -31,7 +31,7 @@ class ProfileScreen extends StatelessWidget {
           CircleAvatar(
             radius: 35,
             backgroundColor: Colors.orange[100],
-            child: Icon(Icons.pets, size: 40, color: Colors.orange[400]), // Placeholder dog avatar
+            child: Icon(Icons.pets, size: 40, color: const Color(0xFFFF2E54)), // Placeholder dog avatar
           ),
           const SizedBox(width: 16),
           const Expanded(

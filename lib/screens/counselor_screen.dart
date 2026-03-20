@@ -78,12 +78,12 @@ class _CounselorScreenState extends State<CounselorScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
-        title: const Text('情感导师', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        title: const Text('情感导师', style: TextStyle(color: const Color(0xFF2B2F35), fontSize: 18, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF1A1528),
         elevation: 0.5,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.chevron_left, color: Colors.white, size: 30),
+          icon: const Icon(Icons.chevron_left, color: const Color(0xFF2B2F35), size: 30),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -195,7 +195,7 @@ class _CounselorScreenState extends State<CounselorScreen> {
       margin: const EdgeInsets.only(bottom: 24, top: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1528),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -219,7 +219,7 @@ class _CounselorScreenState extends State<CounselorScreen> {
               const SizedBox(width: 8),
               const Text(
                 '告诉我你的困扰吧，我随时准备倾听和陪伴～',
-                style: TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w500),
+                style: TextStyle(fontSize: 14, color: const Color(0xFF2B2F35), fontWeight: FontWeight.w500),
               ),
             ],
           ),
@@ -250,7 +250,7 @@ class _CounselorScreenState extends State<CounselorScreen> {
             Expanded(
               child: Text(
                 text,
-                style: const TextStyle(fontSize: 13, color: Colors.white),
+                style: const TextStyle(fontSize: 13, color: const Color(0xFF2B2F35)),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -266,7 +266,7 @@ class _CounselorScreenState extends State<CounselorScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1528),
+        color: Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withValues(alpha: 0.1),
@@ -303,7 +303,7 @@ class _CounselorScreenState extends State<CounselorScreen> {
             child: const CircleAvatar(
               backgroundColor: Color(0xFFFF4D85),
               radius: 20,
-              child: Icon(Icons.send, color: Colors.white, size: 18),
+              child: Icon(Icons.send, color: const Color(0xFF2B2F35), size: 18),
             ),
           ),
         ],

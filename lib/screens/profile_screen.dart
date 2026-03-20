@@ -31,7 +31,7 @@ class ProfileScreen extends StatelessWidget {
           CircleAvatar(
             radius: 35,
             backgroundColor: Colors.orange[100],
-            child: Icon(Icons.pets, size: 40, color: const Color(0xFFFF2E54)), // Placeholder dog avatar
+            child: Icon(Icons.pets, size: 40, color: const Color(0xFF586AFE)), // Placeholder dog avatar
           ),
           const SizedBox(width: 16),
           const Expanded(
@@ -86,12 +86,12 @@ class ProfileScreen extends StatelessWidget {
               children: [
                 Text(
                   '恋爱键盘 会员开通',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                  style: TextStyle(color: const Color(0xFF2B2F35), fontWeight: FontWeight.bold, fontSize: 18),
                 ),
                 SizedBox(height: 8),
                 Text(
                   'VIP会员体验聊天达人',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  style: TextStyle(color: const Color(0xFF585C62), fontSize: 12),
                 ),
               ],
             ),

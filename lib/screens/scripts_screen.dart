@@ -84,7 +84,7 @@ class ScriptsScreen extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: const Color(0xFF2B2F35),
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
@@ -121,7 +121,7 @@ class ScriptsScreen extends StatelessWidget {
                 CircleAvatar(
                   radius: 16,
                   backgroundColor: script['iconColor'] as Color,
-                  child: const Icon(Icons.person, size: 20, color: Colors.white), // Placeholder for image
+                  child: const Icon(Icons.person, size: 20, color: const Color(0xFF2B2F35)), // Placeholder for image
                 ),
               ],
             ),
@@ -154,7 +154,7 @@ class _BuildScriptDetailSheet extends StatelessWidget {
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF2B2F35),
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(20),
           topRight: Radius.circular(20),
@@ -195,7 +195,7 @@ class _BuildScriptDetailSheet extends StatelessWidget {
                       ),
                       const SizedBox(width: 10),
                       IconButton(
-                        icon: const Icon(Icons.copy, color: const Color(0xFFFF2E54), size: 20),
+                        icon: const Icon(Icons.copy, color: const Color(0xFF586AFE), size: 20),
                         onPressed: () => _copyToClipboard(context, mockSentences[index]),
                       ),
                     ],

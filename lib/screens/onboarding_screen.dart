@@ -34,7 +34,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0C0916),
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
@@ -70,7 +70,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               : Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(4),
                           boxShadow: _currentPage == index ? [
-                            BoxShadow(color: const Color(0xFFFF2E54).withValues(alpha: 0.5), blurRadius: 10)
+                            BoxShadow(color: const Color(0xFF586AFE).withValues(alpha: 0.3), blurRadius: 10)
                           ] : null,
                         ),
                       ),
@@ -214,10 +214,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   width: 200,
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: const Color(0xFF2B2F35),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
-                      BoxShadow(color: Colors.white.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 5)),
+                      BoxShadow(color: const Color(0xFF2B2F35).withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 5)),
                     ],
                   ),
                   child: Column(
@@ -270,7 +270,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             decoration: BoxDecoration(
               color: const Color(0xFFF3F4F6),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFFFF2E54), width: 2),
+              border: Border.all(color: const Color(0xFF586AFE), width: 2),
             ),
             child: const Row(
               children: [
@@ -316,7 +316,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   margin: const EdgeInsets.all(2),
                   width: 26,
                   height: 26,
-                  decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+                  decoration: const BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF2B2F35)),
                 ),
               ),
             ),
@@ -346,10 +346,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       height: 56,
       child: ElevatedButton.icon(
         onPressed: _nextPage,
-        icon: Icon(icon, color: Colors.white),
+        icon: Icon(icon, color: const Color(0xFF2B2F35)),
         label: Text(
           text,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF2B2F35)),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFFF4D85),

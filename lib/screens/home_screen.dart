@@ -60,7 +60,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0C0916), // Dark Mode Cyber background
+      backgroundColor: const Color(0xFFF4F6FE), // Dark Mode Cyber background
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
@@ -92,7 +92,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: const Color(0xFF2B2F35),
                   letterSpacing: 1.2,
                 ),
               ),
@@ -101,22 +101,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 'AI恋爱辅助输入法',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.white.withValues(alpha: 0.7),
+                  color: const Color(0xFF585C62),
                 ),
               ),
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFF2E54).withValues(alpha: 0.2),
+                  color: const Color(0xFF586AFE).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFFF2E54).withValues(alpha: 0.5)),
+                  border: Border.all(color: const Color(0xFF586AFE).withValues(alpha: 0.5)),
                 ),
                 child: const Text(
                   '你们的情绪共鸣正在升温',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFFFF2E54),
+                    color: Color(0xFF586AFE),
                   ),
                 ),
               ),
@@ -142,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFFFF2E54).withValues(alpha: 0.4),
+                              color: const Color(0xFF586AFE).withValues(alpha: 0.4),
                               blurRadius: 30,
                               spreadRadius: 10,
                             ),
@@ -165,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             '当前情绪值',
                             style: TextStyle(
                               fontSize: 10,
-                              color: Colors.white70,
+                              color: const Color(0xFF585C62),
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -174,10 +174,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             style: TextStyle(
                               fontSize: 26,
                               fontWeight: FontWeight.w900,
-                              color: Colors.white,
+                              color: const Color(0xFF2B2F35),
                               shadows: [
                                 Shadow(
-                                  color: const Color(0xFFFF2E54).withValues(alpha: 0.8),
+                                  color: const Color(0xFF586AFE).withValues(alpha: 0.8),
                                   blurRadius: 10,
                                 )
                               ],
@@ -201,19 +201,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       padding: const EdgeInsets.all(20),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1528),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(25),
           border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
         ),
         child: TextField(
           controller: _searchController,
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: Color(0xFF2B2F35)),
           decoration: InputDecoration(
             hintText: '输入对方发来的消息，AI帮你回...',
             hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
             prefixIcon: Icon(Icons.search, color: Colors.white.withValues(alpha: 0.4)),
             suffixIcon: IconButton(
-              icon: const Icon(Icons.send, color: Color(0xFFFF2E54)),
+              icon: const Icon(Icons.send, color: Color(0xFF586AFE)),
               onPressed: () => _showGenerateDialog(context),
             ),
             border: InputBorder.none,
@@ -279,15 +279,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1528).withValues(alpha: 0.8),
+          color: Colors.white.withValues(alpha: 0.8),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: const Color(0xFFFF2E54).withValues(alpha: 0.3),
+            color: const Color(0xFF586AFE).withValues(alpha: 0.3),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFFF2E54).withValues(alpha: 0.05),
+              color: const Color(0xFF586AFE).withValues(alpha: 0.05),
               blurRadius: 10,
               spreadRadius: 2,
             ),
@@ -299,23 +299,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(icon, color: const Color(0xFFFF2E54), size: isLarge ? 32 : 24),
+                Icon(icon, color: const Color(0xFF586AFE), size: isLarge ? 32 : 24),
                 if (isLarge)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFF2E54),
+                      color: const Color(0xFF586AFE),
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFFF2E54).withValues(alpha: 0.5),
+                          color: const Color(0xFF586AFE).withValues(alpha: 0.5),
                           blurRadius: 8,
                         )
                       ],
                     ),
                     child: const Text(
                       '开始咨询',
-                      style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: const Color(0xFF2B2F35), fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                   ),
               ],
@@ -326,7 +326,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
-                color: Colors.white,
+                color: const Color(0xFF2B2F35),
               ),
             ),
             const SizedBox(height: 4),
@@ -437,7 +437,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     Container(
                       padding: const EdgeInsets.all(4),
                       decoration: const BoxDecoration(
-                        color: Colors.white,
+                        color: const Color(0xFF2B2F35),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.male, size: 12, color: Colors.white),
@@ -511,7 +511,7 @@ class _BuildGenerateResultSheetState extends State<_BuildGenerateResultSheet> {
     return Container(
       height: MediaQuery.of(context).size.height * 0.6,
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF2B2F35),
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(20),
           topRight: Radius.circular(20),
@@ -550,9 +550,9 @@ class _BuildGenerateResultSheetState extends State<_BuildGenerateResultSheet> {
                         margin: const EdgeInsets.only(bottom: 16),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1A1528),
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFFF2E54).withValues(alpha: 0.2)),
+                          border: Border.all(color: const Color(0xFF586AFE).withValues(alpha: 0.2)),
                         ),
                         child: Row(
                           children: [
@@ -640,8 +640,8 @@ class FluidHeartPainter extends CustomPainter {
         Offset(0, waterLevel),
         Offset(0, height),
         [
-          const Color(0xFFFF2E54), // Neon Pink
-          const Color(0xFF9B2EFF), // Neon Purple
+          const Color(0xFFFF85A2), // Soft Pink Liquid
+          const Color(0xFFFFB3C6), // Lighter Pink
         ],
       );
 

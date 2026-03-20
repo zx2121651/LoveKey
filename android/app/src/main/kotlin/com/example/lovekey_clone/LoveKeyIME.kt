@@ -5,6 +5,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -167,9 +168,7 @@ fun LoveKeyKeyboardUI(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                Brush.verticalGradient(
-                    colors = listOf(Color(0xFFE8E8FF), Color(0xFFF3E5F5))
-                )
+                SolidColor(Color(0xFFF4F6FE))
             )
             .padding(bottom = 8.dp) // Slight bottom padding
     ) {
@@ -187,7 +186,7 @@ fun LoveKeyKeyboardUI(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF4285F4)),
+                        .background(Color(0xFF586AFE), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("☺️", fontSize = 18.sp) // Simplified icon
@@ -200,13 +199,14 @@ fun LoveKeyKeyboardUI(
                     onClick = {
                         activeTab = if (activeTab == "quick_reply") "keyboard" else "quick_reply"
                     },
-                    colors = ButtonDefaults.buttonColors(backgroundColor = Color.White),
+                    colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFFFFFFFF)),
+                    border = BorderStroke(1.dp, Color(0xFFDFE2EC)),
                     shape = RoundedCornerShape(18.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                     modifier = Modifier.height(32.dp),
                     elevation = ButtonDefaults.elevation(0.dp)
                 ) {
-                    Text("帮你回", color = Color(0xFF333333), fontSize = 13.sp)
+                    Text("帮你回", color = Color(0xFF2B2F35), fontSize = 13.sp)
                 }
 
                 Spacer(modifier = Modifier.width(8.dp))
@@ -220,13 +220,14 @@ fun LoveKeyKeyboardUI(
                             activeTab = "keyboard"
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(backgroundColor = Color.White),
+                    colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFFFFFFFF)),
+                    border = BorderStroke(1.dp, Color(0xFFDFE2EC)),
                     shape = RoundedCornerShape(18.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                     modifier = Modifier.height(32.dp),
                     elevation = ButtonDefaults.elevation(0.dp)
                 ) {
-                    Text("超会说", color = Color(0xFF333333), fontSize = 13.sp)
+                    Text("超会说", color = Color(0xFF2B2F35), fontSize = 13.sp)
                 }
 
                 Spacer(modifier = Modifier.weight(1f))
@@ -236,7 +237,7 @@ fun LoveKeyKeyboardUI(
                     modifier = Modifier
                         .size(32.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(Color.White, RoundedCornerShape(18.dp)).border(1.dp, Color(0xFFDFE2EC), RoundedCornerShape(18.dp))
                         .clickable { /* History */ },
                     contentAlignment = Alignment.Center
                 ) {
@@ -250,7 +251,7 @@ fun LoveKeyKeyboardUI(
                     modifier = Modifier
                         .size(32.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(Color.White, RoundedCornerShape(18.dp)).border(1.dp, Color(0xFFDFE2EC), RoundedCornerShape(18.dp))
                         .clickable {
                             if (activeTab != "custom_prompt") {
                                 checkAndUseFeature { activeTab = "custom_prompt" }
@@ -274,7 +275,7 @@ fun LoveKeyKeyboardUI(
                         .clickable { showPaywall = true },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(if (isVip) "VIP" else "$freeUsageCount", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text(if (isVip) "VIP" else "$freeUsageCount", color = Color(0xFF2B2F35), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
             }
         } else {
@@ -295,7 +296,7 @@ fun LoveKeyKeyboardUI(
                     items(candidates) { word ->
                         Text(
                             text = word,
-                            color = Color(0xFF333333),
+                            color = Color(0xFF2B2F35),
                             fontSize = 16.sp,
                             modifier = Modifier.clickable { onCommitText(word) }.padding(vertical = 8.dp)
                         )
@@ -324,7 +325,7 @@ fun LoveKeyKeyboardUI(
                             isGenerating = true
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF8A9CFF)),
+                    colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF586AFE)),
                     shape = RoundedCornerShape(18.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                     modifier = Modifier
@@ -335,7 +336,7 @@ fun LoveKeyKeyboardUI(
                         ),
                     elevation = ButtonDefaults.elevation(2.dp)
                 ) {
-                    Text("✨换个说法", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("✨换个说法", color = Color(0xFF2B2F35), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -346,7 +347,7 @@ fun LoveKeyKeyboardUI(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                    .background(Color(0xFFF3F4F6))
+                    .background(Color(0xFFF4F6FE))
                     .height(300.dp)
             ) {
                 // Header of AI Reply
@@ -360,7 +361,7 @@ fun LoveKeyKeyboardUI(
                         text = "超会说✨",
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 18.sp,
-                        color = Color(0xFF333333)
+                        color = Color(0xFF2B2F35)
                     )
 
                     Spacer(modifier = Modifier.width(8.dp))
@@ -368,11 +369,11 @@ fun LoveKeyKeyboardUI(
                     // Tone Selector
                     Row(
                         modifier = Modifier
-                            .background(Color.White, RoundedCornerShape(12.dp))
+                            .background(Color.White, RoundedCornerShape(12.dp)).border(1.dp, Color(0xFFEEF0F9), RoundedCornerShape(12.dp))
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(text = selectedPersona, fontSize = 12.sp, color = Color(0xFF333333))
+                        Text(text = selectedPersona, fontSize = 12.sp, color = Color(0xFF2B2F35))
                         Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Switch", tint = Color(0xFF888888), modifier = Modifier.size(14.dp))
                     }
 
@@ -398,7 +399,7 @@ fun LoveKeyKeyboardUI(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(Color.White, RoundedCornerShape(12.dp))
+                                .background(Color.White, RoundedCornerShape(12.dp)).border(1.dp, Color(0xFFEEF0F9), RoundedCornerShape(12.dp))
                                 .clickable {
                                     onCommitText(replyPair.second)
                                     activeTab = "keyboard"
@@ -416,7 +417,7 @@ fun LoveKeyKeyboardUI(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         text = replyPair.second,
-                                        color = Color(0xFF333333),
+                                        color = Color(0xFF2B2F35),
                                         fontSize = 15.sp,
                                         modifier = Modifier.weight(1f)
                                     )
@@ -470,7 +471,7 @@ fun LoveKeyKeyboardUI(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                    .background(Color(0xFFF3F4F6))
+                    .background(Color(0xFFF4F6FE))
                     .height(300.dp)
             ) {
                 // Header
@@ -484,7 +485,7 @@ fun LoveKeyKeyboardUI(
                         text = "✨ 为你润色草稿",
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 18.sp,
-                        color = Color(0xFF333333)
+                        color = Color(0xFF2B2F35)
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     Icon(
@@ -517,7 +518,7 @@ fun LoveKeyKeyboardUI(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(Color.White, RoundedCornerShape(12.dp))
+                                    .background(Color.White, RoundedCornerShape(12.dp)).border(1.dp, Color(0xFFEEF0F9), RoundedCornerShape(12.dp))
                                     .clickable {
                                         onReplaceDraft(replyPair.second)
                                         activeTab = "keyboard"
@@ -534,7 +535,7 @@ fun LoveKeyKeyboardUI(
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(
                                         text = replyPair.second,
-                                        color = Color(0xFF333333),
+                                        color = Color(0xFF2B2F35),
                                         fontSize = 15.sp,
                                         modifier = Modifier.fillMaxWidth()
                                     )
@@ -550,7 +551,7 @@ fun LoveKeyKeyboardUI(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                    .background(Color.White)
+                    .background(Color.White, RoundedCornerShape(18.dp)).border(1.dp, Color(0xFFDFE2EC), RoundedCornerShape(18.dp))
                     .height(300.dp)
                     .padding(16.dp)
             ) {
@@ -562,7 +563,7 @@ fun LoveKeyKeyboardUI(
                         text = "写下你的草稿或意图",
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
-                        color = Color(0xFF333333)
+                        color = Color(0xFF2B2F35)
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     Icon(
@@ -583,7 +584,7 @@ fun LoveKeyKeyboardUI(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    placeholder = { Text("例如：告诉老板我今天病了请假一天，语气委婉一点", color = Color(0xFF999999), fontSize = 14.sp) },
+                    placeholder = { Text("例如：告诉老板我今天病了请假一天，语气委婉一点", color = Color(0xFF585C62), fontSize = 14.sp) },
                     colors = TextFieldDefaults.outlinedTextFieldColors(
                         backgroundColor = Color(0xFFF3F4F6),
                         unfocusedBorderColor = Color.Transparent,
@@ -609,14 +610,14 @@ fun LoveKeyKeyboardUI(
                         }
                     },
                     modifier = Modifier.fillMaxWidth().height(48.dp),
-                    colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF8A9CFF)),
+                    colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF586AFE)),
                     shape = RoundedCornerShape(24.dp),
                     enabled = !isGenerating
                 ) {
                     if (isGenerating) {
-                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                        CircularProgressIndicator(color = Color(0xFF2B2F35), modifier = Modifier.size(24.dp))
                     } else {
-                        Text("帮我润色", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text("帮我润色", color = Color(0xFF2B2F35), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -639,7 +640,7 @@ fun LoveKeyKeyboardUI(
                     modifier = Modifier
                         .fillMaxWidth(0.85f)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(Color.White)
+                        .background(Color.White, RoundedCornerShape(18.dp)).border(1.dp, Color(0xFFDFE2EC), RoundedCornerShape(18.dp))
                         .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -659,14 +660,14 @@ fun LoveKeyKeyboardUI(
                         text = "免费次数已用完",
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
-                        color = Color(0xFF333333)
+                        color = Color(0xFF2B2F35)
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
                         text = "升级高级版，解锁无限次 AI 对话、100+高情商人设及专属自定义指令。",
-                        color = Color(0xFF666666),
+                        color = Color(0xFF585C62),
                         fontSize = 14.sp,
                         textAlign = TextAlign.Center
                     )
@@ -682,14 +683,14 @@ fun LoveKeyKeyboardUI(
                         colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFFFFA000)),
                         shape = RoundedCornerShape(24.dp)
                     ) {
-                        Text("¥28 / 月  立即解锁", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text("¥28 / 月  立即解锁", color = Color(0xFF2B2F35), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
                         text = "¥98 / 永久买断",
-                        color = Color(0xFF999999),
+                        color = Color(0xFF585C62),
                         fontSize = 14.sp,
                         modifier = Modifier.clickable {
                             isVip = true
@@ -785,7 +786,7 @@ fun KeyButton(
     ) {
         Text(
             text = text,
-            color = Color(0xFF333333),
+            color = Color(0xFF2B2F35),
             fontSize = if (text.length > 3) 14.sp else 16.sp,
             textAlign = TextAlign.Center
         )

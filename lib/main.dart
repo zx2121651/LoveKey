@@ -53,17 +53,17 @@ class _MainScreenState extends State<MainScreen> {
       body: _screens[_currentIndex],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: const Color(0xFFFF2E54).withValues(alpha: 0.2))),
+          border: Border(top: BorderSide.none),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFFF2E54).withValues(alpha: 0.05),
+              color: const Color(0xFF586AFE).withValues(alpha: 0.08),
               blurRadius: 10,
               offset: const Offset(0, -5),
             )
           ]
         ),
         child: BottomNavigationBar(
-          backgroundColor: const Color(0xFF1A1528),
+          backgroundColor: Colors.white,
           currentIndex: _currentIndex,
           onTap: (index) {
             setState(() {
@@ -71,8 +71,8 @@ class _MainScreenState extends State<MainScreen> {
             });
           },
           type: BottomNavigationBarType.fixed,
-          selectedItemColor: const Color(0xFFFF2E54),
-          unselectedItemColor: Colors.white.withValues(alpha: 0.4),
+          selectedItemColor: const Color(0xFF586AFE),
+          unselectedItemColor: const Color(0xFF9A9DA4),
           items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),

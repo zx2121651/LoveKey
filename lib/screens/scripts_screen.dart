@@ -7,10 +7,10 @@ class ScriptsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1528),
+      backgroundColor: const Color(0xFFFFFFFF),
       appBar: AppBar(
         title: const Text('话术生成器', style: TextStyle(color: Colors.black)),
-        backgroundColor: const Color(0xFF1A1528),
+        backgroundColor: const Color(0xFFFFFFFF),
         elevation: 0,
         centerTitle: false,
       ),
@@ -50,15 +50,27 @@ class ScriptsScreen extends StatelessWidget {
       {'title': '早起问候', 'subtitle': '温柔问候，甜心一天', 'iconColor': Colors.blue[100]},
       {'title': '晚安问候', 'subtitle': '温柔情话伴入梦', 'iconColor': Colors.purple[100]},
       {'title': '午休闲聊', 'subtitle': '用美食与爱陪伴', 'iconColor': Colors.orange[100]},
-      {'title': '半夜失眠', 'subtitle': '深夜里的温暖陪伴', 'iconColor': Colors.indigo[100]},
-      {'title': '下班关心', 'subtitle': '为疲惫的Ta加鼓打气', 'iconColor': Colors.green[100]},
+      {
+        'title': '半夜失眠',
+        'subtitle': '深夜里的温暖陪伴',
+        'iconColor': Colors.indigo[100],
+      },
+      {
+        'title': '下班关心',
+        'subtitle': '为疲惫的Ta加鼓打气',
+        'iconColor': Colors.green[100],
+      },
       {'title': '加班问候', 'subtitle': '辛苦了，有你陪着Ta', 'iconColor': Colors.red[100]},
       {'title': '周末约会', 'subtitle': '创造专属美好时光', 'iconColor': Colors.teal[100]},
       {'title': '天气提醒', 'subtitle': '贴心提醒护Ta周全', 'iconColor': Colors.cyan[100]},
       {'title': '趣事分享', 'subtitle': '分享快乐拉近距离', 'iconColor': Colors.amber[100]},
-      {'title': '考试打气', 'subtitle': '为Ta加油赢得未来', 'iconColor': Colors.pink[100]},
+      {'title': '考试打气', 'subtitle': '为Ta加油赢得未来', 'iconColor': Color(0xFFE4E7F2)},
       {'title': '生病关怀', 'subtitle': '暖心呵护，早日康复', 'iconColor': Colors.lime[100]},
-      {'title': '突然想念', 'subtitle': '情不自禁的爱意表达', 'iconColor': Colors.lightBlue[100]},
+      {
+        'title': '突然想念',
+        'subtitle': '情不自禁的爱意表达',
+        'iconColor': Colors.lightBlue[100],
+      },
     ];
 
     return GridView.builder(
@@ -78,13 +90,14 @@ class ScriptsScreen extends StatelessWidget {
               context: context,
               backgroundColor: Colors.transparent,
               isScrollControlled: true,
-              builder: (context) => _BuildScriptDetailSheet(title: script['title'] as String),
+              builder: (context) =>
+                  _BuildScriptDetailSheet(title: script['title'] as String),
             );
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: const Color(0xFFFFFFFF),
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
@@ -105,7 +118,10 @@ class ScriptsScreen extends StatelessWidget {
                     children: [
                       Text(
                         script['title'] as String,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -121,7 +137,11 @@ class ScriptsScreen extends StatelessWidget {
                 CircleAvatar(
                   radius: 16,
                   backgroundColor: script['iconColor'] as Color,
-                  child: const Icon(Icons.person, size: 20, color: Colors.white), // Placeholder for image
+                  child: const Icon(
+                    Icons.person,
+                    size: 20,
+                    color: const Color(0xFF2B2F35),
+                  ), // Placeholder for image
                 ),
               ],
             ),
@@ -138,9 +158,9 @@ class _BuildScriptDetailSheet extends StatelessWidget {
 
   void _copyToClipboard(BuildContext context, String text) {
     Clipboard.setData(ClipboardData(text: text)).then((_) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('话术已复制！')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('话术已复制！')));
     });
   }
 
@@ -173,7 +193,10 @@ class _BuildScriptDetailSheet extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            child: Text(
+              title,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
           ),
           Expanded(
             child: ListView.separated(
@@ -191,12 +214,20 @@ class _BuildScriptDetailSheet extends StatelessWidget {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(mockSentences[index], style: const TextStyle(fontSize: 14)),
+                        child: Text(
+                          mockSentences[index],
+                          style: const TextStyle(fontSize: 14),
+                        ),
                       ),
                       const SizedBox(width: 10),
                       IconButton(
-                        icon: const Icon(Icons.copy, color: const Color(0xFFFF2E54), size: 20),
-                        onPressed: () => _copyToClipboard(context, mockSentences[index]),
+                        icon: const Icon(
+                          Icons.copy,
+                          color: const Color(0xFF586AFE),
+                          size: 20,
+                        ),
+                        onPressed: () =>
+                            _copyToClipboard(context, mockSentences[index]),
                       ),
                     ],
                   ),

@@ -7,19 +7,60 @@ class KeyboardScreen extends StatefulWidget {
   State<KeyboardScreen> createState() => _KeyboardScreenState();
 }
 
-class _KeyboardScreenState extends State<KeyboardScreen> with TickerProviderStateMixin {
+class _KeyboardScreenState extends State<KeyboardScreen>
+    with TickerProviderStateMixin {
   final GlobalKey _myKeyboardKey = GlobalKey();
   late final List<GlobalKey> _iconKeys;
 
   final List<Map<String, dynamic>> personas = [
-    {'title': '恋爱大师', 'subtitle': '精通恋爱技巧了解人心', 'icon': Icons.favorite_border, 'added': true},
-    {'title': '情场高手', 'subtitle': '深谙情场之道，游刃有余', 'icon': Icons.psychology, 'added': true},
-    {'title': '土味情话', 'subtitle': '用接地气的情话，打动她', 'icon': Icons.chat, 'added': true},
-    {'title': '情绪稳定', 'subtitle': '星级安慰人，给人力量', 'icon': Icons.spa, 'added': false},
-    {'title': '花式撩人', 'subtitle': '风趣浪漫，俘获芳心', 'icon': Icons.local_florist, 'added': false},
-    {'title': '暧昧拉扯', 'subtitle': '若即若离，让人欲罢不能', 'icon': Icons.all_inclusive, 'added': true},
-    {'title': '撩女生', 'subtitle': '擅长用各种方式吸引女生', 'icon': Icons.girl, 'added': false},
-    {'title': '贴心暖男', 'subtitle': '心思细腻，总是给予关怀', 'icon': Icons.wb_sunny, 'added': true},
+    {
+      'title': '恋爱大师',
+      'subtitle': '精通恋爱技巧了解人心',
+      'icon': Icons.favorite_border,
+      'added': true,
+    },
+    {
+      'title': '情场高手',
+      'subtitle': '深谙情场之道，游刃有余',
+      'icon': Icons.psychology,
+      'added': true,
+    },
+    {
+      'title': '土味情话',
+      'subtitle': '用接地气的情话，打动她',
+      'icon': Icons.chat,
+      'added': true,
+    },
+    {
+      'title': '情绪稳定',
+      'subtitle': '星级安慰人，给人力量',
+      'icon': Icons.spa,
+      'added': false,
+    },
+    {
+      'title': '花式撩人',
+      'subtitle': '风趣浪漫，俘获芳心',
+      'icon': Icons.local_florist,
+      'added': false,
+    },
+    {
+      'title': '暧昧拉扯',
+      'subtitle': '若即若离，让人欲罢不能',
+      'icon': Icons.all_inclusive,
+      'added': true,
+    },
+    {
+      'title': '撩女生',
+      'subtitle': '擅长用各种方式吸引女生',
+      'icon': Icons.girl,
+      'added': false,
+    },
+    {
+      'title': '贴心暖男',
+      'subtitle': '心思细腻，总是给予关怀',
+      'icon': Icons.wb_sunny,
+      'added': true,
+    },
   ];
 
   @override
@@ -40,13 +81,17 @@ class _KeyboardScreenState extends State<KeyboardScreen> with TickerProviderStat
   }
 
   void _runSuckAnimation(GlobalKey sourceKey, IconData iconData) {
-    final RenderBox? sourceBox = sourceKey.currentContext?.findRenderObject() as RenderBox?;
-    final RenderBox? targetBox = _myKeyboardKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? sourceBox =
+        sourceKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? targetBox =
+        _myKeyboardKey.currentContext?.findRenderObject() as RenderBox?;
 
     if (sourceBox == null || targetBox == null) return;
 
     final sourcePosition = sourceBox.localToGlobal(Offset.zero);
-    final targetPosition = targetBox.localToGlobal(targetBox.size.center(Offset.zero));
+    final targetPosition = targetBox.localToGlobal(
+      targetBox.size.center(Offset.zero),
+    );
 
     final overlayEntry = OverlayEntry(
       builder: (context) => _SuckAnimationWidget(
@@ -68,10 +113,13 @@ class _KeyboardScreenState extends State<KeyboardScreen> with TickerProviderStat
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1528),
+      backgroundColor: const Color(0xFFFFFFFF),
       appBar: AppBar(
-        title: const Text('话术', style: TextStyle(color: Colors.black)), // Following App Store image style for top tab
-        backgroundColor: const Color(0xFF1A1528),
+        title: const Text(
+          '话术',
+          style: TextStyle(color: Colors.black),
+        ), // Following App Store image style for top tab
+        backgroundColor: const Color(0xFFFFFFFF),
         elevation: 0,
         centerTitle: true,
       ),
@@ -99,7 +147,10 @@ class _KeyboardScreenState extends State<KeyboardScreen> with TickerProviderStat
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFFE6E6FA), Color(0xFFFFD1DC)], // Purple to pink gradient
+                  colors: [
+                    Color(0xFFE6E6FA),
+                    Color(0xFFFFD1DC),
+                  ], // Purple to pink gradient
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -108,16 +159,31 @@ class _KeyboardScreenState extends State<KeyboardScreen> with TickerProviderStat
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('定制专属人设', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const Text('为你量身打造', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                  const Text(
+                    '定制专属人设',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const Text(
+                    '为你量身打造',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: const Color(0xFF585C62),
+                    ),
+                  ),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
                     decoration: const BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
-                    child: const Text('去定制', style: TextStyle(color: Colors.white, fontSize: 12)),
+                    child: const Text(
+                      '去定制',
+                      style: TextStyle(color: Colors.white, fontSize: 12),
+                    ),
                   ),
                 ],
               ),
@@ -141,12 +207,29 @@ class _KeyboardScreenState extends State<KeyboardScreen> with TickerProviderStat
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text('我的键盘', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                            Text('查看已配置', style: TextStyle(fontSize: 9, color: Colors.white70)),
+                            Text(
+                              '我的键盘',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                            Text(
+                              '查看已配置',
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: const Color(0xFF585C62),
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                      Icon(Icons.keyboard, key: _myKeyboardKey, size: 20, color: Colors.blueAccent),
+                      Icon(
+                        Icons.keyboard,
+                        key: _myKeyboardKey,
+                        size: 20,
+                        color: Colors.blueAccent,
+                      ),
                     ],
                   ),
                 ),
@@ -164,8 +247,20 @@ class _KeyboardScreenState extends State<KeyboardScreen> with TickerProviderStat
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text('恋爱教程', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                            Text('经典恋爱案例', style: TextStyle(fontSize: 9, color: Colors.white70)),
+                            Text(
+                              '恋爱教程',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                            Text(
+                              '经典恋爱案例',
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: const Color(0xFF585C62),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -239,7 +334,10 @@ class _KeyboardScreenState extends State<KeyboardScreen> with TickerProviderStat
                 children: [
                   Text(
                     persona['title'] as String,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -257,16 +355,25 @@ class _KeyboardScreenState extends State<KeyboardScreen> with TickerProviderStat
                     key: iconKey,
                     radius: 14,
                     backgroundColor: Colors.grey[200],
-                    child: Icon(persona['icon'] as IconData, size: 16, color: Colors.white70),
+                    child: Icon(
+                      persona['icon'] as IconData,
+                      size: 16,
+                      color: const Color(0xFF585C62),
+                    ),
                   ),
                   GestureDetector(
                     onTap: () => _togglePersonaStatus(index, iconKey),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeOutBack,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: isAdded ? Colors.grey[200] : const Color(0xFFFF6B4A),
+                        color: isAdded
+                            ? Colors.grey[200]
+                            : const Color(0xFF586AFE),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: AnimatedSwitcher(
@@ -311,7 +418,8 @@ class _SuckAnimationWidget extends StatefulWidget {
   State<_SuckAnimationWidget> createState() => _SuckAnimationWidgetState();
 }
 
-class _SuckAnimationWidgetState extends State<_SuckAnimationWidget> with SingleTickerProviderStateMixin {
+class _SuckAnimationWidgetState extends State<_SuckAnimationWidget>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late Animation<double> _opacityAnimation;
@@ -327,7 +435,11 @@ class _SuckAnimationWidgetState extends State<_SuckAnimationWidget> with SingleT
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.1).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0.5, 1.0, curve: Curves.easeIn), // Shrink at the end
+        curve: const Interval(
+          0.5,
+          1.0,
+          curve: Curves.easeIn,
+        ), // Shrink at the end
       ),
     );
 
@@ -358,8 +470,10 @@ class _SuckAnimationWidgetState extends State<_SuckAnimationWidget> with SingleT
           // Manually translating instead of SlideTransition for absolute pixels
           return Transform.translate(
             offset: Offset(
-              (widget.endPosition.dx - widget.startPosition.dx) * _controller.value,
-              (widget.endPosition.dy - widget.startPosition.dy) * _controller.value,
+              (widget.endPosition.dx - widget.startPosition.dx) *
+                  _controller.value,
+              (widget.endPosition.dy - widget.startPosition.dy) *
+                  _controller.value,
             ),
             child: Transform.scale(
               scale: _scaleAnimation.value,
@@ -369,8 +483,8 @@ class _SuckAnimationWidgetState extends State<_SuckAnimationWidget> with SingleT
                   color: Colors.transparent,
                   child: CircleAvatar(
                     radius: 14,
-                    backgroundColor: Colors.pink[100],
-                    child: Icon(widget.iconData, size: 16, color: Colors.pink),
+                    backgroundColor: Color(0xFFE4E7F2),
+                    child: Icon(widget.iconData, size: 16, color: Color(0xFF586AFE)),
                   ),
                 ),
               ),

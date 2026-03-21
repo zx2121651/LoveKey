@@ -29,7 +29,9 @@ class _CounselorScreenState extends State<CounselorScreen> {
     });
 
     _messages.add(ChatMessage(text: text, isUser: true));
-    _listKey.currentState?.insertItem(_messages.length); // length+1 is effectively the end, index is _messages.length - 1 + 1 (for header)
+    _listKey.currentState?.insertItem(
+      _messages.length,
+    ); // length+1 is effectively the end, index is _messages.length - 1 + 1 (for header)
 
     _scrollToBottom();
 
@@ -40,10 +42,9 @@ class _CounselorScreenState extends State<CounselorScreen> {
         _isTyping = false;
       });
 
-      _messages.add(ChatMessage(
-        text: _generateMockResponse(text),
-        isUser: false,
-      ));
+      _messages.add(
+        ChatMessage(text: _generateMockResponse(text), isUser: false),
+      );
       _listKey.currentState?.insertItem(_messages.length);
 
       _scrollToBottom();
@@ -78,12 +79,23 @@ class _CounselorScreenState extends State<CounselorScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
-        title: const Text('情感导师', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF1A1528),
+        title: const Text(
+          '情感导师',
+          style: TextStyle(
+            color: const Color(0xFF2B2F35),
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: const Color(0xFFFFFFFF),
         elevation: 0.5,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.chevron_left, color: Colors.white, size: 30),
+          icon: const Icon(
+            Icons.chevron_left,
+            color: const Color(0xFF2B2F35),
+            size: 30,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -96,7 +108,10 @@ class _CounselorScreenState extends State<CounselorScreen> {
                 padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('导师正在思考中...', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  child: Text(
+                    '导师正在思考中...',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
                 ),
               ),
             _buildMessageInput(),
@@ -118,13 +133,10 @@ class _CounselorScreenState extends State<CounselorScreen> {
         }
         final message = _messages[index - 1];
         return SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 0.5),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutBack,
-          )),
+          position: Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero)
+              .animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+              ),
           child: FadeTransition(
             opacity: animation,
             child: _buildChatMessage(message),
@@ -138,21 +150,27 @@ class _CounselorScreenState extends State<CounselorScreen> {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
-        mainAxisAlignment: message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: message.isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!message.isUser)
             CircleAvatar(
               radius: 16,
               backgroundColor: Colors.blue[100],
-              child: const Icon(Icons.support_agent, size: 20, color: Colors.blue),
+              child: const Icon(
+                Icons.support_agent,
+                size: 20,
+                color: Colors.blue,
+              ),
             ),
           const SizedBox(width: 8),
           Flexible(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: message.isUser ? const Color(0xFFFF4D85) : Colors.white,
+                color: message.isUser ? const Color(0xFF586AFE) : Colors.white,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
                   topRight: const Radius.circular(16),
@@ -195,7 +213,7 @@ class _CounselorScreenState extends State<CounselorScreen> {
       margin: const EdgeInsets.only(bottom: 24, top: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1528),
+        color: const Color(0xFFFFFFFF),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -214,12 +232,20 @@ class _CounselorScreenState extends State<CounselorScreen> {
               CircleAvatar(
                 radius: 14,
                 backgroundColor: Colors.blue[100],
-                child: const Icon(Icons.support_agent, size: 16, color: Colors.blue),
+                child: const Icon(
+                  Icons.support_agent,
+                  size: 16,
+                  color: Colors.blue,
+                ),
               ),
               const SizedBox(width: 8),
               const Text(
                 '告诉我你的困扰吧，我随时准备倾听和陪伴～',
-                style: TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w500),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: const Color(0xFF2B2F35),
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
@@ -250,7 +276,10 @@ class _CounselorScreenState extends State<CounselorScreen> {
             Expanded(
               child: Text(
                 text,
-                style: const TextStyle(fontSize: 13, color: Colors.white),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: const Color(0xFF2B2F35),
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -266,7 +295,7 @@ class _CounselorScreenState extends State<CounselorScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1528),
+        color: const Color(0xFFFFFFFF),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withValues(alpha: 0.1),
@@ -301,9 +330,9 @@ class _CounselorScreenState extends State<CounselorScreen> {
           GestureDetector(
             onTap: () => _handleSubmitted(_textController.text),
             child: const CircleAvatar(
-              backgroundColor: Color(0xFFFF4D85),
+              backgroundColor: Color(0xFF586AFE),
               radius: 20,
-              child: Icon(Icons.send, color: Colors.white, size: 18),
+              child: Icon(Icons.send, color: const Color(0xFFFFFFFF), size: 18),
             ),
           ),
         ],

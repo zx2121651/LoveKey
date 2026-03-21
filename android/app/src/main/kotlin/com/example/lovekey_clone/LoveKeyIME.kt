@@ -34,6 +34,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ComposeView
@@ -336,7 +338,7 @@ fun LoveKeyKeyboardUI(
                         ),
                     elevation = ButtonDefaults.elevation(2.dp)
                 ) {
-                    Text("✨换个说法", color = Color(0xFF2B2F35), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("✨换个说法", color = Color(0xFFFFFFFF), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -617,7 +619,7 @@ fun LoveKeyKeyboardUI(
                     if (isGenerating) {
                         CircularProgressIndicator(color = Color(0xFF2B2F35), modifier = Modifier.size(24.dp))
                     } else {
-                        Text("帮我润色", color = Color(0xFF2B2F35), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text("帮我润色", color = Color(0xFFFFFFFF), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

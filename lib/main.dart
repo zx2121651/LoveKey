@@ -59,8 +59,8 @@ class _MainScreenState extends State<MainScreen> {
               color: const Color(0xFF586AFE).withValues(alpha: 0.08),
               blurRadius: 10,
               offset: const Offset(0, -5),
-            )
-          ]
+            ),
+          ],
         ),
         child: BottomNavigationBar(
           backgroundColor: Colors.white,
@@ -74,28 +74,28 @@ class _MainScreenState extends State<MainScreen> {
           selectedItemColor: const Color(0xFF586AFE),
           unselectedItemColor: const Color(0xFF9A9DA4),
           items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: '首页',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.keyboard_outlined),
-            activeIcon: Icon(Icons.keyboard),
-            label: '键盘',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            activeIcon: Icon(Icons.chat_bubble),
-            label: '话术',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: '我的',
-          ),
-        ],
-      ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: '首页',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.keyboard_outlined),
+              activeIcon: Icon(Icons.keyboard),
+              label: '键盘',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.chat_bubble_outline),
+              activeIcon: Icon(Icons.chat_bubble),
+              label: '话术',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: '我的',
+            ),
+          ],
+        ),
       ),
     );
   }

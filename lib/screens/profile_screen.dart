@@ -6,7 +6,7 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1528),
+      backgroundColor: const Color(0xFFFFFFFF),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
@@ -31,7 +31,11 @@ class ProfileScreen extends StatelessWidget {
           CircleAvatar(
             radius: 35,
             backgroundColor: Colors.orange[100],
-            child: Icon(Icons.pets, size: 40, color: const Color(0xFF586AFE)), // Placeholder dog avatar
+            child: Icon(
+              Icons.pets,
+              size: 40,
+              color: const Color(0xFF586AFE),
+            ), // Placeholder dog avatar
           ),
           const SizedBox(width: 16),
           const Expanded(
@@ -57,7 +61,10 @@ class ProfileScreen extends StatelessWidget {
           ),
           TextButton(
             onPressed: () {},
-            child: const Text('编辑主页', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            child: const Text(
+              '编辑主页',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
           ),
         ],
       ),
@@ -72,7 +79,10 @@ class ProfileScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFFFF8C00), Color(0xFFFF4500)], // Orange to Red gradient
+            colors: [
+              Color(0xFFFF8C00),
+              Color(0xFFFF4500),
+            ], // Orange to Red gradient
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),
@@ -86,16 +96,27 @@ class ProfileScreen extends StatelessWidget {
               children: [
                 Text(
                   '恋爱键盘 会员开通',
-                  style: TextStyle(color: const Color(0xFF2B2F35), fontWeight: FontWeight.bold, fontSize: 18),
+                  style: TextStyle(
+                    color: const Color(0xFF2B2F35),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
                 ),
                 SizedBox(height: 8),
                 Text(
                   'VIP会员体验聊天达人',
-                  style: TextStyle(color: const Color(0xFF585C62), fontSize: 12),
+                  style: TextStyle(
+                    color: const Color(0xFF585C62),
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
-            Icon(Icons.payment, size: 40, color: Colors.yellow[200]), // Placeholder for VIP Card image
+            Icon(
+              Icons.payment,
+              size: 40,
+              color: Colors.yellow[200],
+            ), // Placeholder for VIP Card image
           ],
         ),
       ),
@@ -108,7 +129,7 @@ class ProfileScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildIconItem('恋爱键盘', Icons.keyboard, Colors.pink),
+          _buildIconItem('恋爱键盘', Icons.keyboard, Color(0xFF586AFE)),
           _buildIconItem('情感导师', Icons.support_agent, Colors.blue),
           _buildIconItem('话术生成', Icons.chat, Colors.purple),
           _buildIconItem('图片识人', Icons.camera_alt, Colors.orange),

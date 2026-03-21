@@ -3,7 +3,6 @@ import 'counselor_screen.dart';
 
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,7 +15,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   late AnimationController _heartAnimationController;
   late Animation<double> _heartScaleAnimation;
-  late Animation<double> _fluidWaveAnimation;
+  late Animation<double> _heartRotationAnimation;
 
   @override
   void initState() {
@@ -33,9 +32,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       CurvedAnimation(parent: _heartAnimationController, curve: Curves.easeInOutCubic),
     );
 
-    // 2. Fluid Wave Animation
-    _fluidWaveAnimation = Tween<double>(begin: 0.0, end: 2 * math.pi).animate(
-      CurvedAnimation(parent: _heartAnimationController, curve: Curves.linear),
+    // 2. 3D Rotation Animation (Y-axis flip, like a coin spinning)
+    // We animate from 0 to Pi (180 degrees)
+    _heartRotationAnimation = Tween<double>(begin: 0.0, end: math.pi).animate(
+      CurvedAnimation(parent: _heartAnimationController, curve: Curves.easeInOutSine),
     );
   }
 
@@ -60,7 +60,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FE), // Dark Mode Cyber background
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
@@ -80,7 +80,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFE6FFEA), // Light green-ish
+            Color(0xFFFFF0F5), // Light pink-ish
+          ],
+        ),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -88,105 +98,104 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Lovekey',
+                'AI恋爱键盘',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: const Color(0xFF2B2F35),
-                  letterSpacing: 1.2,
+                  color: Colors.black87,
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                'AI恋爱辅助输入法',
+              const Text(
+                'AI帮你撩，脱单没烦恼',
                 style: TextStyle(
                   fontSize: 14,
-                  color: const Color(0xFF585C62),
+                  color: Colors.black54,
                 ),
               ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF586AFE).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF586AFE).withValues(alpha: 0.5)),
-                ),
-                child: const Text(
-                  '你们的情绪共鸣正在升温',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF586AFE),
-                  ),
+              const SizedBox(height: 4),
+              Text(
+                'love',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontFamily: 'cursive', // Assuming a cursive font would be used
+                  color: Colors.pink[300],
                 ),
               ),
             ],
           ),
-          // Fluid 3D Heart Animation (30% capacity)
+          // Beating 3D Emotion Value Coin flip animation
           AnimatedBuilder(
             animation: _heartAnimationController,
             builder: (context, child) {
-              return Transform.scale(
-                scale: _heartScaleAnimation.value,
-                child: SizedBox(
-                  width: 120,
-                  height: 120,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // Glow effect behind the heart
-                      Container(
-                        width: 90,
-                        height: 90,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF586AFE).withValues(alpha: 0.4),
-                              blurRadius: 30,
-                              spreadRadius: 10,
-                            ),
-                          ],
-                        ),
-                      ),
-                      // The Fluid Heart Custom Paint
-                      CustomPaint(
-                        size: const Size(120, 120),
-                        painter: FluidHeartPainter(
-                          wavePhase: _fluidWaveAnimation.value,
-                          fillPercentage: 0.3, // 30% capacity
-                        ),
-                      ),
-                      // Text inside/over the heart
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text(
-                            '当前情绪值',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: const Color(0xFF585C62),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            '30%',
-                            style: TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFF2B2F35),
-                              shadows: [
-                                Shadow(
-                                  color: const Color(0xFF586AFE).withValues(alpha: 0.8),
-                                  blurRadius: 10,
-                                )
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+              final angle = _heartRotationAnimation.value;
+              final isFront = angle <= math.pi / 2;
+
+              // Create a 3D perspective matrix
+              final transform = Matrix4.identity()
+                ..setEntry(3, 2, 0.0015) // depth perspective
+                ..rotateY(angle); // flip on Y axis
+
+              // Scale matrix
+              transform.scale(_heartScaleAnimation.value, _heartScaleAnimation.value);
+
+              return Transform(
+                transform: transform,
+                alignment: Alignment.center,
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  // We use a container with decoration to give the heart a "coin" like shadow feel during rotation
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF2B2F35),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.pink.withValues(alpha: 0.3),
+                        blurRadius: 15,
+                        spreadRadius: 2,
+                      )
+                    ]
                   ),
+                  child: isFront
+                      // Front Side: The Heart
+                      ? Center(
+                          child: Icon(
+                            Icons.favorite,
+                            size: 80,
+                            color: Colors.pink[400],
+                          ),
+                        )
+                      // Back Side: The Emotion Value (Percentage)
+                      : Transform(
+                          // Crucial: Rotate 180 degrees back on the Y-axis.
+                          // Because the parent container is flipped (showing us its back),
+                          // any text inside will appear mirrored (backwards).
+                          // This inner rotation cancels out the mirroring so the text is readable.
+                          transform: Matrix4.rotationY(math.pi),
+                          alignment: Alignment.center,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text(
+                                '99%',
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFFFF4D85),
+                                ),
+                              ),
+                              Text(
+                                '心动值',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.pink[200],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                 ),
               );
             },
@@ -201,25 +210,42 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       padding: const EdgeInsets.all(20),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(25),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          color: const Color(0xFF2B2F35),
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withValues(alpha: 0.2),
+              spreadRadius: 2,
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
         child: TextField(
           controller: _searchController,
-          style: const TextStyle(color: Color(0xFF2B2F35)),
+          textInputAction: TextInputAction.search,
+          onSubmitted: (_) => _showGenerateDialog(context),
           decoration: InputDecoration(
-            hintText: '输入对方发来的消息，AI帮你回...',
-            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
-            prefixIcon: Icon(Icons.search, color: Colors.white.withValues(alpha: 0.4)),
-            suffixIcon: IconButton(
-              icon: const Icon(Icons.send, color: Color(0xFF586AFE)),
-              onPressed: () => _showGenerateDialog(context),
-            ),
+            hintText: '输入 TA 说的话，获得高情商回复',
+            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            suffixIcon: Padding(
+              padding: const EdgeInsets.all(4.0),
+              child: ElevatedButton(
+                onPressed: () => _showGenerateDialog(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black87,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                ),
+                child: const Text('搜索'),
+              ),
+            ),
           ),
-          onSubmitted: (_) => _showGenerateDialog(context),
         ),
       ),
     );
@@ -228,44 +254,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _buildFeatureCards(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
+      child: GridView.count(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisCount: 2,
+        mainAxisSpacing: 15,
+        crossAxisSpacing: 15,
+        childAspectRatio: 1.8,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _buildCyberCard(
-                  context,
-                  '键盘人设',
-                  '幽默 / 高冷',
-                  Icons.psychology,
-                ),
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: _buildCyberCard(
-                  context,
-                  '话术库',
-                  '如何高情商回复...',
-                  Icons.menu_book,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 15),
-          _buildCyberCard(
-            context,
-            '恋爱咨询室',
-            'AI情感导师24H在线',
-            Icons.favorite_border,
-            isLarge: true,
-            isCounselor: true,
-          ),
+          _buildCard(context, '恋爱键盘', '教你高情商聊天，不\n管怎么聊都有料', const Color(0xFFFFEBF0), Icons.keyboard),
+          _buildCard(context, '情感导师', '24小时在线的情感\n专家', const Color(0xFFEBF7FF), Icons.support_agent, isCounselor: true),
+          _buildCard(context, '话术生成器', '表达心意的魔法道具', const Color(0xFFEBF0FF), Icons.chat),
+          _buildCard(context, '图片识人', '上传照片或聊天截图\nAI快速解析', const Color(0xFFF6EBFF), Icons.camera_alt),
         ],
       ),
     );
   }
 
-  Widget _buildCyberCard(BuildContext context, String title, String subtitle, IconData icon, {bool isLarge = false, bool isCounselor = false}) {
+  Widget _buildCard(BuildContext context, String title, String subtitle, Color bgColor, IconData icon, {bool isCounselor = false}) {
     return GestureDetector(
       onTap: () {
         if (isCounselor) {
@@ -277,65 +283,31 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         }
       },
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.8),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: const Color(0xFF586AFE).withValues(alpha: 0.3),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF586AFE).withValues(alpha: 0.05),
-              blurRadius: 10,
-              spreadRadius: 2,
-            ),
-          ],
+          color: bgColor,
+          borderRadius: BorderRadius.circular(15),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, color: const Color(0xFF586AFE), size: isLarge ? 32 : 24),
-                if (isLarge)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF586AFE),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF586AFE).withValues(alpha: 0.5),
-                          blurRadius: 8,
-                        )
-                      ],
-                    ),
-                    child: const Text(
-                      '开始咨询',
-                      style: TextStyle(color: const Color(0xFF2B2F35), fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                  ),
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: 10, color: Colors.grey[700]),
+                ),
               ],
             ),
-            SizedBox(height: isLarge ? 16 : 12),
-            Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: const Color(0xFF2B2F35),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.white.withValues(alpha: 0.6),
-              ),
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Icon(icon, size: 40, color: Colors.black12),
             ),
           ],
         ),
@@ -437,7 +409,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     Container(
                       padding: const EdgeInsets.all(4),
                       decoration: const BoxDecoration(
-                        color: const Color(0xFF2B2F35),
+                        color: Colors.black,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.male, size: 12, color: Colors.white),
@@ -550,9 +522,9 @@ class _BuildGenerateResultSheetState extends State<_BuildGenerateResultSheet> {
                         margin: const EdgeInsets.only(bottom: 16),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: const Color(0xFFF9FAFB),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFF586AFE).withValues(alpha: 0.2)),
+                          border: Border.all(color: Colors.grey.shade200),
                         ),
                         child: Row(
                           children: [
@@ -572,99 +544,5 @@ class _BuildGenerateResultSheetState extends State<_BuildGenerateResultSheet> {
         ],
       ),
     );
-  }
-}
-
-class FluidHeartPainter extends CustomPainter {
-  final double wavePhase;
-  final double fillPercentage;
-
-  FluidHeartPainter({required this.wavePhase, required this.fillPercentage});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final double width = size.width;
-    final double height = size.height;
-
-    // 1. Create Heart Path
-    Path heartPath = Path();
-    heartPath.moveTo(width / 2, height / 5);
-    heartPath.cubicTo(5 * width / 14, 0, 0, height / 15, width / 28, 2 * height / 5);
-    heartPath.cubicTo(width / 14, 2 * height / 3, 3 * width / 7, 5 * height / 6, width / 2, height);
-    heartPath.cubicTo(4 * width / 7, 5 * height / 6, 13 * width / 14, 2 * height / 3, 27 * width / 28, 2 * height / 5);
-    heartPath.cubicTo(width, height / 15, 9 * width / 14, 0, width / 2, height / 5);
-
-    // 2. Draw glowing outline (empty part)
-    Paint outlinePaint = Paint()
-      ..color = const Color(0xFFFF2E54).withValues(alpha: 0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
-    canvas.drawPath(heartPath, outlinePaint);
-
-    // Add a slight inner glow to the outline
-    Paint innerGlowPaint = Paint()
-      ..color = const Color(0xFFFF2E54).withValues(alpha: 0.1)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6.0
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
-    canvas.drawPath(heartPath, innerGlowPaint);
-
-    // 3. Create Fluid Wave Path
-    Path fluidPath = Path();
-
-    // Calculate the water level based on percentage (0.0 to 1.0)
-    // Since 0 is top and height is bottom, we invert the percentage
-    double waterLevel = height * (1 - fillPercentage);
-
-    fluidPath.moveTo(0, height);
-    fluidPath.lineTo(0, waterLevel);
-
-    // Sine wave parameters
-    double waveHeight = 5.0;
-    double waveLength = width;
-
-    for (double i = 0; i <= width; i++) {
-      double waveY = waterLevel + math.sin((i / waveLength * 2 * math.pi) + wavePhase) * waveHeight;
-      fluidPath.lineTo(i, waveY);
-    }
-
-    fluidPath.lineTo(width, height);
-    fluidPath.close();
-
-    // 4. Clip the fluid to the heart shape
-    canvas.clipPath(heartPath);
-
-    // 5. Draw the fluid
-    Paint fluidPaint = Paint()
-      ..shader = ui.Gradient.linear(
-        Offset(0, waterLevel),
-        Offset(0, height),
-        [
-          const Color(0xFFFF85A2), // Soft Pink Liquid
-          const Color(0xFFFFB3C6), // Lighter Pink
-        ],
-      );
-
-    canvas.drawPath(fluidPath, fluidPaint);
-
-    // Add a secondary wave for depth
-    Path fluidPath2 = Path();
-    fluidPath2.moveTo(0, height);
-    fluidPath2.lineTo(0, waterLevel);
-    for (double i = 0; i <= width; i++) {
-      double waveY = waterLevel + math.sin((i / waveLength * 2 * math.pi) + wavePhase + math.pi) * waveHeight * 0.8;
-      fluidPath2.lineTo(i, waveY);
-    }
-    fluidPath2.lineTo(width, height);
-    fluidPath2.close();
-
-    Paint fluidPaint2 = Paint()
-      ..color = const Color(0xFFFF2E54).withValues(alpha: 0.5);
-    canvas.drawPath(fluidPath2, fluidPaint2);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return true; // Repaint every frame for animation
   }
 }

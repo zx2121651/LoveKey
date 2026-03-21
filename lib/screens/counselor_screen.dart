@@ -195,7 +195,7 @@ class _CounselorScreenState extends State<CounselorScreen> {
       margin: const EdgeInsets.only(bottom: 24, top: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF2B2F35),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -266,7 +266,7 @@ class _CounselorScreenState extends State<CounselorScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF2B2F35),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withValues(alpha: 0.1),

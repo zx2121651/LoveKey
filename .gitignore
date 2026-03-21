@@ -69,3 +69,4 @@
 # Windows/Linux related
 **/windows/
 **/linux/
+android/build/

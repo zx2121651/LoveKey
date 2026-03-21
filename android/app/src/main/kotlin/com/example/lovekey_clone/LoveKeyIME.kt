@@ -49,6 +49,8 @@ import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.osfans.trime.core.Rime
+import java.io.File
 
 class LoveKeyIME : InputMethodService() {
 
@@ -61,18 +63,20 @@ class LoveKeyIME : InputMethodService() {
     private val currentComposingText = mutableStateOf("")
     private val currentCandidates = mutableStateOf<List<String>>(emptyList())
 
-    // The JNI Wrapper instance
-    private val rimeEngine = RimeWrapper()
-
     override fun onCreate() {
         super.onCreate()
         lifecycleOwner = IMELifecycleOwner()
         lifecycleOwner.onCreate()
 
-        // In a real scenario, you'd extract your yaml files to `filesDir.absolutePath` first.
-        // rimeEngine.init(filesDir.absolutePath + "/rime_shared", filesDir.absolutePath + "/rime_user")
+        val sharedDir = filesDir.absolutePath + "/rime_shared"
+        val userDir = filesDir.absolutePath + "/rime_user"
+
+        // 1. Deploy assets to file system
+        RimeDeployer.deployAssets(this, sharedDir)
+
+        // 2. Initialize real Rime Engine
         try {
-            rimeEngine.init("/mock/shared", "/mock/user")
+            Rime.startupRime(sharedDir, userDir, "1.0", true)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -109,66 +113,67 @@ class LoveKeyIME : InputMethodService() {
                         composingText = composing,
                         candidates = candidates,
                         onKeyPress = { key ->
-                            // 1. Send the keycode to the RIME C++ Engine
-                            // Typically, key is "2", "3", etc. We pass its ASCII value.
                             val keycode = key.firstOrNull()?.code ?: 0
-                            val handled = rimeEngine.processKey(keycode)
+                            val handled = Rime.processRimeKey(keycode, 0)
 
                             if (handled) {
-                                // 2. Retrieve updated composition from engine
-                                currentComposingText.value = rimeEngine.getComposingText()
+                                val context = Rime.getRimeContext()
+                                currentComposingText.value = context.composition.preedit ?: ""
                                 currentInputConnection?.setComposingText(currentComposingText.value, 1)
 
-                                // 3. Retrieve updated candidates
-                                currentCandidates.value = rimeEngine.getCandidates().toList()
+                                val candidates = Rime.getRimeCandidates(0, 50)
+                                currentCandidates.value = candidates.map { it.text }
                             } else {
-                                // Not handled by RIME, output directly
                                 currentInputConnection?.commitText(key, 1)
                             }
                         },
                         onCommitCandidate = { candidate ->
-                            // 1. Find index
                             val index = currentCandidates.value.indexOf(candidate)
                             if (index != -1) {
-                                // 2. Tell RIME to commit this index
-                                val commitText = rimeEngine.selectCandidate(index)
-                                currentInputConnection?.commitText(commitText, 1)
+                                Rime.selectRimeCandidate(index, false)
 
-                                // 3. Update state
-                                currentComposingText.value = rimeEngine.getComposingText()
+                                val commit = Rime.getRimeCommit()
+                                if (commit.text != null && commit.text.isNotEmpty()) {
+                                    currentInputConnection?.commitText(commit.text, 1)
+                                }
+
+                                val context = Rime.getRimeContext()
+                                currentComposingText.value = context.composition.preedit ?: ""
                                 if (currentComposingText.value.isEmpty()) {
                                     currentCandidates.value = emptyList()
                                 } else {
                                     currentInputConnection?.setComposingText(currentComposingText.value, 1)
-                                    currentCandidates.value = rimeEngine.getCandidates().toList()
+                                    val candidates = Rime.getRimeCandidates(0, 50)
+                                    currentCandidates.value = candidates.map { it.text }
                                 }
                             } else {
-                                // Fallback
                                 currentInputConnection?.commitText(candidate, 1)
-                                rimeEngine.clear()
+                                Rime.clearRimeComposition()
                                 currentComposingText.value = ""
                                 currentCandidates.value = emptyList()
                             }
                         },
                         onDelete = {
                             if (currentComposingText.value.isNotEmpty()) {
-                                // Send Backspace (Keycode 8) to RIME
-                                rimeEngine.processKey(8)
-                                currentComposingText.value = rimeEngine.getComposingText()
-                                currentCandidates.value = rimeEngine.getCandidates().toList()
+                                Rime.processRimeKey(0xff08, 0)
+
+                                val context = Rime.getRimeContext()
+                                currentComposingText.value = context.composition.preedit ?: ""
 
                                 if (currentComposingText.value.isEmpty()) {
-                                    currentInputConnection?.commitText("", 1) // Clear UI state
+                                    currentInputConnection?.commitText("", 1)
+                                    currentCandidates.value = emptyList()
                                 } else {
                                     currentInputConnection?.setComposingText(currentComposingText.value, 1)
+                                    val candidates = Rime.getRimeCandidates(0, 50)
+                                    currentCandidates.value = candidates.map { it.text }
                                 }
                             } else {
-                                // Delete committed text
                                 currentInputConnection?.deleteSurroundingText(1, 0)
                             }
                         },
                         onReplaceDraft = { replacement ->
-                            rimeEngine.clear()
+                            Rime.clearRimeComposition()
                             currentComposingText.value = ""
                             currentCandidates.value = emptyList()
 
@@ -177,7 +182,7 @@ class LoveKeyIME : InputMethodService() {
                         },
                         onPerformAction = {
                             if (currentComposingText.value.isNotEmpty()) {
-                                rimeEngine.clear()
+                                Rime.clearRimeComposition()
                                 currentInputConnection?.commitText(currentComposingText.value, 1)
                                 currentComposingText.value = ""
                                 currentCandidates.value = emptyList()

@@ -1,0 +1,80 @@
+# Rime schema for Nine-key (T9) Pinyin input
+# It maps number keys (2-9) to their corresponding Pinyin initials and finals.
+
+schema:
+  schema_id: jiugong
+  name: 九宫格拼音
+  version: "0.1"
+  author:
+    - Rime Community
+  description: |
+    九宫格拼音输入方案。
+    使用数字键 2-9 进行输入，通过 algebra 规则将数字映射为拼音字母组合。
+  dependencies:
+    - luna_pinyin
+
+switches:
+  - name: ascii_mode
+    reset: 0
+    states: [ 中文, 西文 ]
+  - name: full_shape
+    states: [ 半角, 全角 ]
+  - name: simplification
+    states: [ 漢字, 汉字 ]
+  - name: ascii_punct
+    states: [ 。，, ．， ]
+
+engine:
+  processors:
+    - ascii_composer
+    - recognizer
+    - key_binder
+    - speller
+    - punctuator
+    - selector
+    - navigator
+    - express_editor
+  segmentors:
+    - ascii_segmentor
+    - matcher
+    - abc_segmentor
+    - punct_segmentor
+    - fallback_segmentor
+  translators:
+    - punct_translator
+    - script_translator
+  filters:
+    - simplifier
+    - uniquifier
+
+speller:
+  alphabet: "23456789"
+  delimiter: " '"
+  algebra:
+    # 这一段是九宫格数字转拼音的核心规则 (algebra)
+    # 将标准拼音字母反向映射为数字
+    - derive/^([a-z]+)$/$1/
+    - xform/a|b|c/2/
+    - xform/d|e|f/3/
+    - xform/g|h|i/4/
+    - xform/j|k|l/5/
+    - xform/m|n|o/6/
+    - xform/p|q|r|s/7/
+    - xform/t|u|v/8/
+    - xform/w|x|y|z/9/
+
+translator:
+  dictionary: luna_pinyin
+  prism: jiugong
+  preedit_format:
+    # 可选：将数字格式化为拼音显示，但由于歧义，通常直接显示数字，由候选词区域展示拼音
+    - xform/([2-9]+)/$1/
+
+punctuator:
+  import_preset: default
+
+key_binder:
+  import_preset: default
+
+recognizer:
+  import_preset: default

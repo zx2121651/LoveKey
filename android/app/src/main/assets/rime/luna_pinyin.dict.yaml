@@ -1,0 +1,33 @@
+# Rime dictionary for Nine-key (T9) Pinyin input
+# A minimal dictionary for demonstration.
+
+---
+name: luna_pinyin
+version: "1.0"
+sort: by_weight
+use_preset_vocabulary: false
+...
+
+你好	ni hao	100
+我	wo	90
+是	shi	90
+的	de	90
+你	ni	80
+好	hao	80
+老板	lao ban	70
+请假	qing jia	70
+今天	jin tian	70
+病	bing	60
+了	le	60
+在	zai	60
+测试	ce shi	50
+键盘	jian pan	50
+输入法	shu ru fa	40
+九宫格	jiu gong ge	40
+爱	ai	30
+键	jian	30
+盘	pan	30
+真	zhen	30
+正	zheng	30
+功	gong	30
+能	neng	30

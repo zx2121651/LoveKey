@@ -4,6 +4,7 @@ import 'screens/keyboard_screen.dart';
 import 'screens/scripts_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   runApp(const LoveKeyApp());
@@ -16,15 +17,8 @@ class LoveKeyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'LoveKey',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFFF4D85), // Pinkish theme color
-          primary: const Color(0xFFFF4D85),
-          secondary: const Color(0xFF8B5CF6), // Purple accent
-          background: const Color(0xFFF9FAFB),
-        ),
-        useMaterial3: true,
-      ),
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.build(),
       home: const OnboardingScreen(),
     );
   }
@@ -50,13 +44,12 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_currentIndex],
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          border: Border(top: BorderSide.none),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF586AFE).withValues(alpha: 0.08),
+              color: AppColors.primary.withValues(alpha: 0.08),
               blurRadius: 10,
               offset: const Offset(0, -5),
             ),
@@ -71,7 +64,8 @@ class _MainScreenState extends State<MainScreen> {
             });
           },
           type: BottomNavigationBarType.fixed,
-          selectedItemColor: const Color(0xFF586AFE),
+          selectedItemColor: AppColors.primary,
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
           unselectedItemColor: const Color(0xFF9A9DA4),
           items: const [
             BottomNavigationBarItem(

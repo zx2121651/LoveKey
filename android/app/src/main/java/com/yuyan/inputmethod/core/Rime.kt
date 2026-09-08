@@ -1,6 +1,7 @@
 package com.yuyan.inputmethod.core
 
 import android.content.Context
+import java.io.File
 import kotlin.system.measureTimeMillis
 
 class Rime(context: Context, fullCheck: Boolean) {
@@ -25,9 +26,31 @@ class Rime(context: Context, fullCheck: Boolean) {
         }
 
         fun startup(context: Context, fullCheck: Boolean) {
-            val path = context.filesDir.absolutePath + "/rime"
-            startupRime(context, path, path, fullCheck)
+            val sharedDir = context.filesDir.absolutePath + "/rime"
+            val userDir = context.filesDir.absolutePath + "/rime_user"
+            // 用户词典独立目录：与部署目录分离，升级引擎资源 / 词库时学习记录不受影响
+            File(userDir).mkdirs()
+            // 兜底迁移：代码首次升级且部署版本未变化时，旧 userdb 仍留在 rime/build
+            migrateLegacyUserDbs(File(sharedDir, "build"), File(userDir, "build"))
+            startupRime(context, sharedDir, userDir, fullCheck)
             updateStatus()
+        }
+
+        /** 把 srcBuild 下的 *.userdb 迁移到 dstBuild（幂等，目标已存在则跳过） */
+        private fun migrateLegacyUserDbs(srcBuild: File, dstBuild: File) {
+            if (!srcBuild.isDirectory) return
+            srcBuild.listFiles()
+                ?.filter { it.isDirectory && it.name.endsWith(".userdb") }
+                ?.forEach { db ->
+                    dstBuild.mkdirs()
+                    val dest = File(dstBuild, db.name)
+                    if (!dest.exists()) {
+                        if (!db.renameTo(dest)) {
+                            runCatching { db.copyRecursively(dest, overwrite = true) }
+                            db.deleteRecursively()
+                        }
+                    }
+                }
         }
 
         @JvmStatic

@@ -21,11 +21,26 @@ object SettingsStore {
     private const val KEY_INTIMACY = "intimacy_level"
     private const val KEY_PERSONA = "selected_persona"
     private const val KEY_CUSTOM_PERSONAS = "custom_personas"
+    private const val KEY_CUSTOM_PHRASES = "custom_phrases"
     private const val KEY_BALL_X = "floatball_x"
     private const val KEY_BALL_Y = "floatball_y"
+    private const val KEY_HAPTIC = "haptic_feedback"
+    private const val KEY_ASCII_MODE = "ascii_mode"
 
     const val DEFAULT_INTIMACY = 50
     const val DEFAULT_PERSONA = "通用"
+
+    // ------------------------------------------------------------------
+    // 快捷回复场景（IME 与 Flutter 共享的分类常量）
+    // ------------------------------------------------------------------
+
+    const val SCENE_GENERAL = "通用"
+    const val SCENE_FLIRT = "撩人"
+    const val SCENE_COMFORT = "安慰"
+    const val SCENE_DAILY = "日常"
+    const val SCENE_ARGUE = "吵架"
+
+    val ALL_SCENES = listOf(SCENE_GENERAL, SCENE_FLIRT, SCENE_COMFORT, SCENE_DAILY, SCENE_ARGUE)
 
     fun getPrefs(context: Context) =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -106,10 +121,76 @@ object SettingsStore {
         getPrefs(context).edit().putString(KEY_CUSTOM_PERSONAS, encodeList(list)).apply()
     }
 
+    // ------------------------------------------------------------------
+    // 自定义快捷话术（按场景分类，增删改查 + 自愈）
+    // ------------------------------------------------------------------
+
+    /**
+     * 读取自定义话术列表；解析失败（数据损坏）时自愈回空列表。
+     * 每项结构：{ id, text, label, scene }；scene 缺失时归入"通用"。
+     */
+    fun getCustomPhrases(context: Context): List<JSONObject> {
+        val raw = getPrefs(context).getString(KEY_CUSTOM_PHRASES, "[]") ?: "[]"
+        return runCatching {
+            val arr = JSONArray(raw)
+            (0 until arr.length()).mapNotNull { i ->
+                val obj = arr.optJSONObject(i) ?: return@mapNotNull null
+                if (obj.optString("text").isBlank()) null
+                else {
+                    obj.put("scene", obj.optString("scene", SCENE_GENERAL))
+                    obj
+                }
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    /** 新增或覆盖同名 id 的自定义话术；scene 为空时归入"通用" */
+    fun saveCustomPhrase(context: Context, phrase: JSONObject) {
+        val text = phrase.optString("text").ifBlank { return }
+        val id = phrase.optString("id").ifBlank { return }
+        if (phrase.optString("scene").isBlank()) phrase.put("scene", SCENE_GENERAL)
+        if (phrase.optString("label").isBlank()) phrase.put("label", "自定义")
+        val list = getCustomPhrases(context).toMutableList()
+        val existingIndex = list.indexOfFirst { it.optString("id") == id }
+        if (existingIndex >= 0) list[existingIndex] = phrase else list.add(phrase)
+        persistCustomPhrases(context, list)
+    }
+
+    fun deleteCustomPhrase(context: Context, id: String) {
+        val list = getCustomPhrases(context).filter { it.optString("id") != id }
+        persistCustomPhrases(context, list)
+    }
+
+    private fun persistCustomPhrases(context: Context, list: List<JSONObject>) {
+        getPrefs(context).edit().putString(KEY_CUSTOM_PHRASES, encodeList(list)).apply()
+    }
+
     private fun encodeList(list: List<JSONObject>): String {
         val arr = JSONArray()
         list.forEach { arr.put(it) }
         return arr.toString()
+    }
+
+    // ------------------------------------------------------------------
+    // 中/英文输入模式（IME 与悬浮球共享的跨端开关）
+    // ------------------------------------------------------------------
+
+    fun getAsciiMode(context: Context): Boolean =
+        getPrefs(context).getBoolean(KEY_ASCII_MODE, false)
+
+    fun setAsciiMode(context: Context, ascii: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_ASCII_MODE, ascii).apply()
+    }
+
+    // ------------------------------------------------------------------
+    // 键盘触觉反馈开关
+    // ------------------------------------------------------------------
+
+    fun getHapticEnabled(context: Context): Boolean =
+        getPrefs(context).getBoolean(KEY_HAPTIC, true)
+
+    fun setHapticEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_HAPTIC, enabled).apply()
     }
 
     // ------------------------------------------------------------------
@@ -134,6 +215,7 @@ object SettingsStore {
         put(KEY_INTIMACY, getIntimacy(context))
         put(KEY_PERSONA, getPersona(context))
         put(KEY_CUSTOM_PERSONAS, JSONArray(getCustomPersonas(context).map { it.toString() }))
+        put(KEY_CUSTOM_PHRASES, JSONArray(getCustomPhrases(context).map { it.toString() }))
     }
 
     /** 恢复默认设置（保留悬浮球位置） */
@@ -142,6 +224,7 @@ object SettingsStore {
             .remove(KEY_INTIMACY)
             .remove(KEY_PERSONA)
             .remove(KEY_CUSTOM_PERSONAS)
+            .remove(KEY_CUSTOM_PHRASES)
             .apply()
     }
 }

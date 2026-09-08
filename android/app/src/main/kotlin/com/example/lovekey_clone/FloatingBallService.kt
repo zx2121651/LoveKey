@@ -13,7 +13,9 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.provider.Settings
 import android.util.TypedValue
 import android.view.Gravity
@@ -22,6 +24,8 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
+import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -56,6 +60,16 @@ class FloatingBallService : Service() {
     private var lastUpdatedX = Int.MIN_VALUE
     private var lastUpdatedY = Int.MIN_VALUE
 
+    // ------------------------------------------------------------------
+    // 长按快捷菜单
+    // ------------------------------------------------------------------
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var longPressTriggered = false
+    private var scrimView: View? = null
+    private var menuView: View? = null
+    private val longPressRunnable = Runnable { showQuickMenu() }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -87,6 +101,7 @@ class FloatingBallService : Service() {
 
     override fun onDestroy() {
         isAnimating = false
+        dismissMenu()
         ballView?.let { runCatching { windowManager.removeView(it) } }
         ballView = null
         isRunning.set(false)
@@ -205,6 +220,9 @@ class FloatingBallService : Service() {
                 initialTouchX = event.rawX
                 initialTouchY = event.rawY
                 isDragging = false
+                longPressTriggered = false
+                // 长按（500ms 未拖动）弹出快捷菜单
+                mainHandler.postDelayed(longPressRunnable, LONG_PRESS_MS)
                 // 触摸反馈：轻微缩小
                 ball.animate().scaleX(0.86f).scaleY(0.86f).setDuration(80L).start()
             }
@@ -214,6 +232,7 @@ class FloatingBallService : Service() {
                 // 超过触摸阈值才视为拖拽（避免与点击冲突）
                 if (!isDragging && isBeyondTouchSlop(event)) {
                     isDragging = true
+                    mainHandler.removeCallbacks(longPressRunnable)
                 }
                 if (isDragging) {
                     params.x = newX
@@ -227,16 +246,19 @@ class FloatingBallService : Service() {
                 }
             }
             MotionEvent.ACTION_UP -> {
+                mainHandler.removeCallbacks(longPressRunnable)
                 ball.animate().scaleX(1f).scaleY(1f).setDuration(100L).start()
-                if (!isDragging) {
+                when {
+                    isDragging -> snapToEdge(ball)
+                    // 长按已弹出菜单：松手不触发点击
+                    longPressTriggered -> Unit
                     // 点击：唤起键盘（位置不变）
-                    openKeyboard()
-                } else {
-                    snapToEdge(ball)
+                    else -> openKeyboard()
                 }
                 isDragging = false
             }
             MotionEvent.ACTION_CANCEL -> {
+                mainHandler.removeCallbacks(longPressRunnable)
                 ball.animate().scaleX(1f).scaleY(1f).setDuration(100L).start()
                 isDragging = false
             }
@@ -298,6 +320,111 @@ class FloatingBallService : Service() {
         startActivity(intent)
     }
 
+    // ------------------------------------------------------------------
+    // 长按快捷菜单
+    // ------------------------------------------------------------------
+
+    /** 长按悬浮球弹出快捷菜单：中英切换 / 唤起键盘 / 设置 / 停止服务 */
+    private fun showQuickMenu() {
+        if (longPressTriggered) return
+        longPressTriggered = true
+        val ballPos = ballParams ?: run { longPressTriggered = false; return }
+
+        // 全屏半透明拦截层：点击空白处关闭菜单
+        val scrim = FrameLayout(this).apply {
+            setBackgroundColor(0x33000000)
+            setOnClickListener { dismissMenu() }
+        }
+        val scrimParams = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        )
+
+        // 菜单本体
+        val menu = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                cornerRadius = dp(14).toFloat()
+                setColor(0xF22E3440)
+            }
+            elevation = dp(6).toFloat()
+            setPadding(dp(4), dp(6), dp(4), dp(6))
+        }
+        val asciiMode = SettingsStore.getAsciiMode(this)
+        addMenuButton(menu, if (asciiMode) "切换到中文" else "切换到英文") {
+            SettingsStore.setAsciiMode(this@FloatingBallService, !asciiMode)
+            dismissMenu()
+        }
+        addMenuButton(menu, "唤起键盘") {
+            openKeyboard()
+            dismissMenu()
+        }
+        addMenuButton(menu, "打开设置") {
+            openSettings()
+            dismissMenu()
+        }
+        addMenuButton(menu, "停止服务") {
+            dismissMenu()
+            stopSelf()
+        }
+
+        val menuParams = WindowManager.LayoutParams(
+            dp(150),
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = ballPos.x
+            val below = ballPos.y + ballPos.height + dp(8)
+            val dm = resources.displayMetrics
+            // 菜单优先显示在球下方；空间不足时翻转到球上方
+            y = if (below + dp(200) > dm.heightPixels) {
+                (ballPos.y - dp(200) - dp(8)).coerceAtLeast(dp(8))
+            } else below
+        }
+
+        runCatching {
+            windowManager.addView(scrim, scrimParams)
+            windowManager.addView(menu, menuParams)
+            scrimView = scrim
+            menuView = menu
+        }
+    }
+
+    private fun addMenuButton(menu: LinearLayout, text: String, onClick: () -> Unit) {
+        TextView(this).apply {
+            this.text = text
+            textSize = 14f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            setBackgroundResource(android.R.drawable.list_selector_background)
+            setOnClickListener { onClick() }
+            menu.addView(this, LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
+    }
+
+    private fun dismissMenu() {
+        mainHandler.removeCallbacks(longPressRunnable)
+        scrimView?.let { runCatching { windowManager.removeView(it) } }
+        menuView?.let { runCatching { windowManager.removeView(it) } }
+        scrimView = null
+        menuView = null
+        longPressTriggered = false
+    }
+
+    private fun openSettings() {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        startActivity(intent)
+    }
+
     private fun dp(value: Int): Int =
         TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP,
@@ -310,6 +437,7 @@ class FloatingBallService : Service() {
         const val ACTION_STOP = "com.example.lovekey_clone.FLOATBALL_STOP"
         private const val CHANNEL_ID = "lovekey_floatball"
         private const val NOTIFICATION_ID = 1001
+        private const val LONG_PRESS_MS = 500L
 
         val isRunning = AtomicBoolean(false)
 

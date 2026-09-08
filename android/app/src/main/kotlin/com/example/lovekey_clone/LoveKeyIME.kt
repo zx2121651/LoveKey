@@ -4,8 +4,10 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.SharedPreferences
 import android.inputmethodservice.InputMethodService
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -13,9 +15,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
@@ -39,6 +43,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -115,13 +120,15 @@ class LoveKeyIME : InputMethodService() {
             mainHandler.post { onRimeReady() }
         }.start()
 
-        // 3. 实时同步 Flutter 侧设置：亲密度 / 人设变化即时生效，无需等键盘重开
+        // 3. 实时同步 Flutter 侧设置：亲密度 / 人设 / 中英模式变化即时生效，无需等键盘重开
         settingsListenerUnregister = SettingsStore.registerChangeListener(
             this,
             SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
                 when (key) {
                     "intimacy_level" -> intimacyLevel.value = SettingsStore.getIntimacy(this)
                     "selected_persona" -> personaName.value = SettingsStore.getPersona(this)
+                    // 悬浮球 / Flutter 侧切换中英：幂等应用目标值
+                    "ascii_mode" -> applyAsciiMode(SettingsStore.getAsciiMode(this))
                 }
             }
         )
@@ -134,6 +141,8 @@ class LoveKeyIME : InputMethodService() {
     /** 引擎就绪：同步西文模式状态，并回放初始化期间缓冲的按键 */
     private fun onRimeReady() {
         isAsciiMode.value = Rime.isAsciiMode
+        // 以引擎实际状态为准，初始化设置桥（避免悬浮球菜单显示与键盘不一致）
+        SettingsStore.setAsciiMode(this, Rime.isAsciiMode)
         val buffered = synchronized(pendingKeys) {
             pendingKeys.toList().also { pendingKeys.clear() }
         }
@@ -141,6 +150,7 @@ class LoveKeyIME : InputMethodService() {
     }
 
     private fun handleKeyPress(key: String) {
+        hapticTick()
         if (!rimeReady.get()) {
             synchronized(pendingKeys) { pendingKeys.add(key) }
             return
@@ -163,12 +173,25 @@ class LoveKeyIME : InputMethodService() {
 
     /** 中/英切换：拨动引擎 ascii_mode 开关 */
     private fun toggleAsciiMode() {
+        hapticTick()
         if (!rimeReady.get()) return
-        val target = !Rime.isAsciiMode
+        applyAsciiMode(!Rime.isAsciiMode)
+    }
+
+    /** 幂等设置中/英模式，并写回设置桥（悬浮球 / Flutter 侧可见、可联动） */
+    private fun applyAsciiMode(target: Boolean) {
+        if (!rimeReady.get()) return
+        if (Rime.isAsciiMode == target) {
+            // 状态已一致：仅同步 UI 与设置桥，不重复拨引擎
+            isAsciiMode.value = target
+            SettingsStore.setAsciiMode(this, target)
+            return
+        }
         Rime.setOption("ascii_mode", target)
         Rime.updateStatus()
         isAsciiMode.value = Rime.isAsciiMode
-        if (target) {
+        SettingsStore.setAsciiMode(this, isAsciiMode.value)
+        if (isAsciiMode.value) {
             // 切到西文时清空拼音输入态
             Rime.clearComposition()
             currentComposingText.value = ""
@@ -177,11 +200,25 @@ class LoveKeyIME : InputMethodService() {
     }
 
     private fun pageUpCandidates() {
+        hapticTick()
         if (Rime.pageUp()) refreshCandidatesAfterPage()
     }
 
     private fun pageDownCandidates() {
+        hapticTick()
         if (Rime.pageDown()) refreshCandidatesAfterPage()
+    }
+
+    /** 按键 / 候选等操作的触觉反馈，跟随设置开关 */
+    private fun hapticTick() {
+        if (!SettingsStore.getHapticEnabled(this)) return
+        val view = currentInputView ?: return
+        val feedback = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            HapticFeedbackConstants.KEYBOARD_TAP
+        } else {
+            HapticFeedbackConstants.VIRTUAL_KEY
+        }
+        runCatching { view.performHapticFeedback(feedback) }
     }
 
     private fun refreshCandidatesAfterPage() {
@@ -247,6 +284,7 @@ class LoveKeyIME : InputMethodService() {
                         onPageUp = { pageUpCandidates() },
                         onPageDown = { pageDownCandidates() },
                         onCommitAssociate = { word ->
+                            hapticTick()
                             currentInputConnection?.commitText(word, 1)
                             associateCandidates.value = emptyList()
                         },
@@ -262,6 +300,7 @@ class LoveKeyIME : InputMethodService() {
                             handleKeyPress(key)
                         },
                         onCommitCandidate = { candidate ->
+                            hapticTick()
                             val index = currentCandidates.value.indexOf(candidate)
                             if (index != -1) {
                                 Rime.selectCandidate(index)
@@ -290,6 +329,7 @@ class LoveKeyIME : InputMethodService() {
                             }
                         },
                         onDelete = {
+                            hapticTick()
                             if (currentComposingText.value.isNotEmpty()) {
                                 Rime.processKey(0xff08, 0)
 
@@ -357,6 +397,8 @@ class LoveKeyIME : InputMethodService() {
     override fun onDestroy() {
         settingsListenerUnregister?.run()
         settingsListenerUnregister = null
+        // 退出引擎：flush 用户词典（学习记录落盘到 rime_user/build）
+        runCatching { Rime.destroy() }
         lifecycleOwner.onDestroy()
         super.onDestroy()
     }
@@ -391,6 +433,12 @@ fun LoveKeyKeyboardUI(
     var customPromptText by remember { mutableStateOf("") }
     var copiedText by remember { mutableStateOf("") }
 
+    // 帮你回：当前选中的话术场景（通用/撩人/安慰/日常/吵架）
+    var quickScene by rememberSaveable { mutableStateOf(SettingsStore.SCENE_GENERAL) }
+    // 自定义话术输入框（长按"帮你回"面板内自定义项时弹出）
+    var customPhraseText by remember { mutableStateOf("") }
+    var showCustomPhraseInput by remember { mutableStateOf(false) }
+
     val context = LocalContext.current
 
     // VIP and Usage logic
@@ -413,7 +461,10 @@ fun LoveKeyKeyboardUI(
 
     // Intimacy-aware reply pool (recomputed when intimacy / persona changes)
     val aiReplies = remember(intimacy, personaName) { buildReplies(intimacy, personaName) }
-    val quickReplies = remember(intimacy, personaName) { buildQuickReplies(intimacy, personaName) }
+    // 场景话术：自定义话术优先 + 场景池 + 亲密度 + 人设
+    val quickReplies = remember(context, quickScene, intimacy, personaName) {
+        buildSceneQuickReplies(context, quickScene, intimacy, personaName)
+    }
 
     // 快捷切换 chips：内置常用人设 + 当前使用的人设（可能来自 Flutter 人设市场/自定义）
     val personaChips =
@@ -884,9 +935,118 @@ fun LoveKeyKeyboardUI(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
-                // 回复列表（随亲密度变化）
+                // 场景切换 chips：通用 / 撩人 / 安慰 / 日常 / 吵架 + 自定义话术入口
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        SettingsStore.ALL_SCENES.forEach { scene ->
+                            val selected = quickScene == scene
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(
+                                        if (selected) Color(0xFF586AFE) else Color.White,
+                                        RoundedCornerShape(14.dp)
+                                    )
+                                    .border(1.dp, if (selected) Color(0xFF586AFE) else Color(0xFFDFE2EC), RoundedCornerShape(14.dp))
+                                    .clickable { quickScene = scene }
+                                    .padding(horizontal = 12.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = scene,
+                                    color = if (selected) Color.White else Color(0xFF585C62),
+                                    fontSize = 12.sp,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    // 自定义话术入口：添加到当前场景
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(Color.White, CircleShape)
+                            .border(1.dp, Color(0xFFDFE2EC), CircleShape)
+                            .clickable {
+                                customPhraseText = ""
+                                showCustomPhraseInput = true
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "添加自定义话术",
+                            tint = Color(0xFF586AFE),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                // 自定义话术输入区
+                if (showCustomPhraseInput) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = customPhraseText,
+                            onValueChange = { customPhraseText = it },
+                            modifier = Modifier.weight(1f).height(44.dp),
+                            placeholder = { Text("输入自定义话术…", color = Color(0xFF9AA0AC), fontSize = 13.sp) },
+                            colors = TextFieldDefaults.outlinedTextFieldColors(
+                                backgroundColor = Color.White,
+                                unfocusedBorderColor = Color(0xFFDFE2EC),
+                                focusedBorderColor = Color(0xFF8A9CFF)
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                val text = customPhraseText.trim()
+                                if (text.isNotEmpty()) {
+                                    SettingsStore.saveCustomPhrase(
+                                        context,
+                                        org.json.JSONObject().apply {
+                                            put("id", "custom_" + System.currentTimeMillis())
+                                            put("text", text)
+                                            put("label", "自定义")
+                                            put("scene", quickScene)
+                                        }
+                                    )
+                                    customPhraseText = ""
+                                    showCustomPhraseInput = false
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF586AFE)),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp),
+                            modifier = Modifier.height(44.dp),
+                            enabled = customPhraseText.isNotBlank()
+                        ) {
+                            Text("添加", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // 回复列表（随场景 / 亲密度 / 人设变化）
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -1516,3 +1676,47 @@ private fun buildQuickReplies(level: Int, persona: String): List<Pair<String, St
     (intimacyPool(level) + personaPool(persona))
         .distinctBy { it.second }
         .take(4)
+
+/** 场景话术池：撩人 / 安慰 / 日常 / 吵架 */
+private fun scenePool(scene: String): List<Pair<String, String>> = when (scene) {
+    SettingsStore.SCENE_FLIRT -> listOf(
+        Pair("撩人", "你今天是不是偷偷喷了香水？我隔着屏幕都心动了。"),
+        Pair("撩人", "我有个超能力，见到你就会开心。"),
+        Pair("撩人", "月亮不睡我不睡，你不回我我失眠。"),
+        Pair("撩人", "你猜我现在在想谁？反正不是你…骗你的，就是你。")
+    )
+    SettingsStore.SCENE_COMFORT -> listOf(
+        Pair("安慰", "别难过，不管发生什么，我都在。"),
+        Pair("安慰", "先抱一个，事情都会好起来的。"),
+        Pair("安慰", "你已经做得很好了，剩下的交给我。"),
+        Pair("安慰", "想哭就哭吧，我陪着你，不丢人。")
+    )
+    SettingsStore.SCENE_DAILY -> listOf(
+        Pair("日常", "今天午饭吃了什么呀？"),
+        Pair("日常", "刚看到一朵云很像你，就拍下来了。"),
+        Pair("日常", "下班了吗？路上注意安全～"),
+        Pair("日常", "今天也要好好吃饭，好好想我。")
+    )
+    SettingsStore.SCENE_ARGUE -> listOf(
+        Pair("缓和", "我们先冷静一下，好不好？我不想跟你吵。"),
+        Pair("缓和", "我错了还不行嘛，你笑一下，这事就翻篇了。"),
+        Pair("缓和", "跟你生气的时候，我心里其实比你还难受。"),
+        Pair("缓和", "道理我都可以不讲，但你得让我哄哄你。")
+    )
+    else -> emptyList()
+}
+
+/** 帮你回（场景版）：自定义话术优先，再补场景池 / 亲密度 / 人设 */
+private fun buildSceneQuickReplies(
+    context: Context,
+    scene: String,
+    level: Int,
+    persona: String
+): List<Pair<String, String>> {
+    val custom = SettingsStore.getCustomPhrases(context)
+        .filter { it.optString("scene") == scene }
+        .map { it.optString("label", "自定义") to it.optString("text") }
+    return (custom + scenePool(scene) + intimacyPool(level) + personaPool(persona))
+        .distinctBy { it.second }
+        .take(6)
+}

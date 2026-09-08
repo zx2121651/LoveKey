@@ -3,6 +3,7 @@ import 'counselor_screen.dart';
 
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
+import '../services/ai_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -501,21 +502,22 @@ class _BuildGenerateResultSheet extends StatefulWidget {
 
 class _BuildGenerateResultSheetState extends State<_BuildGenerateResultSheet> {
   bool _isLoading = true;
-  final List<String> _mockReplies = [
-    '这是我听过最有趣的想法了，你真有意思！',
-    '哈哈，你这么说我会骄傲的哦～',
-    '那你想不想知道我是怎么想的？😏',
-  ];
+  List<String> _replies = const [];
 
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    _loadReplies();
+  }
+
+  /// 调用 AI 服务生成回复（未配置 API Key 时自动回退本地 Mock）
+  Future<void> _loadReplies() async {
+    setState(() => _isLoading = true);
+    final replies = await AIService.instance.generateReplies(widget.query);
+    if (!mounted) return;
+    setState(() {
+      _replies = replies;
+      _isLoading = false;
     });
   }
 
@@ -551,9 +553,37 @@ class _BuildGenerateResultSheetState extends State<_BuildGenerateResultSheet> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          const Text(
-            'AI 高情商回复',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                'AI 高情商回复',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              if (!AIService.instance.hasApiKey) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '演示回复',
+                    style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                  ),
+                ),
+              ],
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.refresh, size: 20, color: Color(0xFF586AFE)),
+                tooltip: '换个说法',
+                onPressed: _isLoading ? null : _loadReplies,
+              ),
+            ],
           ),
           const SizedBox(height: 20),
           Expanded(
@@ -573,7 +603,7 @@ class _BuildGenerateResultSheetState extends State<_BuildGenerateResultSheet> {
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.all(20),
-                    itemCount: _mockReplies.length,
+                    itemCount: _replies.length,
                     itemBuilder: (context, index) {
                       return Container(
                         margin: const EdgeInsets.only(bottom: 16),
@@ -587,7 +617,7 @@ class _BuildGenerateResultSheetState extends State<_BuildGenerateResultSheet> {
                           children: [
                             Expanded(
                               child: Text(
-                                _mockReplies[index],
+                                _replies[index],
                                 style: const TextStyle(fontSize: 14),
                               ),
                             ),
@@ -598,7 +628,7 @@ class _BuildGenerateResultSheetState extends State<_BuildGenerateResultSheet> {
                                 size: 20,
                               ),
                               onPressed: () =>
-                                  _copyToClipboard(_mockReplies[index]),
+                                  _copyToClipboard(_replies[index]),
                             ),
                           ],
                         ),

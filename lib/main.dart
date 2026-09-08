@@ -4,8 +4,11 @@ import 'screens/keyboard_screen.dart';
 import 'screens/scripts_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'services/settings_service.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SettingsService.instance.init();
   runApp(const LoveKeyApp());
 }
 

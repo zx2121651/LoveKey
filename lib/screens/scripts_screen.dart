@@ -1,8 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-class ScriptsScreen extends StatelessWidget {
+import '../models/opening_line.dart';
+
+class ScriptsScreen extends StatefulWidget {
   const ScriptsScreen({super.key});
+
+  @override
+  State<ScriptsScreen> createState() => _ScriptsScreenState();
+}
+
+class _ScriptsScreenState extends State<ScriptsScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(
+      length: kOpeningScenes.length,
+      vsync: this,
+    )..addListener(() {
+        if (!_tabController.indexIsChanging) setState(() {});
+      });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,52 +53,27 @@ class ScriptsScreen extends StatelessWidget {
   }
 
   Widget _buildTabBar(BuildContext context) {
-    return DefaultTabController(
-      length: 5,
-      child: TabBar(
-        isScrollable: true,
-        labelColor: Theme.of(context).colorScheme.primary,
-        unselectedLabelColor: Colors.grey,
-        indicatorColor: Theme.of(context).colorScheme.primary,
-        indicatorSize: TabBarIndicatorSize.label,
-        tabs: const [
-          Tab(text: '开场'),
-          Tab(text: '约会'),
-          Tab(text: '告白'),
-          Tab(text: '道歉'),
-          Tab(text: '夸赞'),
-        ],
-      ),
+    return TabBar(
+      controller: _tabController,
+      isScrollable: true,
+      labelColor: Theme.of(context).colorScheme.primary,
+      unselectedLabelColor: Colors.grey,
+      indicatorColor: Theme.of(context).colorScheme.primary,
+      indicatorSize: TabBarIndicatorSize.label,
+      tabs: [
+        for (final scene in kOpeningScenes) Tab(text: scene),
+      ],
     );
   }
 
+  /// 当前 Tab 对应的开场白场景
+  List<OpeningLine> get _currentScenes {
+    final scene = kOpeningScenes[_tabController.index];
+    return kOpeningLibrary.where((s) => s.scene == scene).toList();
+  }
+
   Widget _buildScriptsGrid() {
-    final scripts = [
-      {'title': '早起问候', 'subtitle': '温柔问候，甜心一天', 'iconColor': Colors.blue[100]},
-      {'title': '晚安问候', 'subtitle': '温柔情话伴入梦', 'iconColor': Colors.purple[100]},
-      {'title': '午休闲聊', 'subtitle': '用美食与爱陪伴', 'iconColor': Colors.orange[100]},
-      {
-        'title': '半夜失眠',
-        'subtitle': '深夜里的温暖陪伴',
-        'iconColor': Colors.indigo[100],
-      },
-      {
-        'title': '下班关心',
-        'subtitle': '为疲惫的Ta加鼓打气',
-        'iconColor': Colors.green[100],
-      },
-      {'title': '加班问候', 'subtitle': '辛苦了，有你陪着Ta', 'iconColor': Colors.red[100]},
-      {'title': '周末约会', 'subtitle': '创造专属美好时光', 'iconColor': Colors.teal[100]},
-      {'title': '天气提醒', 'subtitle': '贴心提醒护Ta周全', 'iconColor': Colors.cyan[100]},
-      {'title': '趣事分享', 'subtitle': '分享快乐拉近距离', 'iconColor': Colors.amber[100]},
-      {'title': '考试打气', 'subtitle': '为Ta加油赢得未来', 'iconColor': Color(0xFFE4E7F2)},
-      {'title': '生病关怀', 'subtitle': '暖心呵护，早日康复', 'iconColor': Colors.lime[100]},
-      {
-        'title': '突然想念',
-        'subtitle': '情不自禁的爱意表达',
-        'iconColor': Colors.lightBlue[100],
-      },
-    ];
+    final scenes = _currentScenes;
 
     return GridView.builder(
       padding: const EdgeInsets.all(16),
@@ -79,19 +81,18 @@ class ScriptsScreen extends StatelessWidget {
         crossAxisCount: 2,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: 2.2, // Rectangular cards
+        childAspectRatio: 2.2,
       ),
-      itemCount: scripts.length,
+      itemCount: scenes.length,
       itemBuilder: (context, index) {
-        final script = scripts[index];
+        final scene = scenes[index];
         return GestureDetector(
           onTap: () {
             showModalBottomSheet(
               context: context,
               backgroundColor: Colors.transparent,
               isScrollControlled: true,
-              builder: (context) =>
-                  _BuildScriptDetailSheet(title: script['title'] as String),
+              builder: (context) => _ScriptDetailSheet(scene: scene),
             );
           },
           child: Container(
@@ -117,7 +118,7 @@ class ScriptsScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        script['title'] as String,
+                        scene.title,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
@@ -125,7 +126,7 @@ class ScriptsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        script['subtitle'] as String,
+                        scene.subtitle,
                         style: TextStyle(fontSize: 10, color: Colors.grey[500]),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -136,12 +137,8 @@ class ScriptsScreen extends StatelessWidget {
                 const SizedBox(width: 8),
                 CircleAvatar(
                   radius: 16,
-                  backgroundColor: script['iconColor'] as Color,
-                  child: const Icon(
-                    Icons.person,
-                    size: 20,
-                    color: const Color(0xFF2B2F35),
-                  ), // Placeholder for image
+                  backgroundColor: Colors.grey[100],
+                  child: Text(scene.emoji, style: const TextStyle(fontSize: 16)),
                 ),
               ],
             ),
@@ -152,9 +149,10 @@ class ScriptsScreen extends StatelessWidget {
   }
 }
 
-class _BuildScriptDetailSheet extends StatelessWidget {
-  final String title;
-  const _BuildScriptDetailSheet({required this.title});
+class _ScriptDetailSheet extends StatelessWidget {
+  final OpeningLine scene;
+
+  const _ScriptDetailSheet({required this.scene});
 
   void _copyToClipboard(BuildContext context, String text) {
     Clipboard.setData(ClipboardData(text: text)).then((_) {
@@ -166,11 +164,6 @@ class _BuildScriptDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<String> mockSentences = List.generate(
-      10,
-      (index) => '这是关于【$title】的第 ${index + 1} 条高情商话术示例，可以直接复制使用哦～',
-    );
-
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
       decoration: const BoxDecoration(
@@ -193,17 +186,25 @@ class _BuildScriptDetailSheet extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            child: Text(
-              title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(scene.emoji, style: const TextStyle(fontSize: 20)),
+                const SizedBox(width: 8),
+                Text(
+                  '${scene.title} · ${scene.subtitle}',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
           ),
           Expanded(
             child: ListView.separated(
               padding: const EdgeInsets.all(20),
-              itemCount: mockSentences.length,
+              itemCount: scene.lines.length,
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
+                final line = scene.lines[index];
                 return Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -214,20 +215,16 @@ class _BuildScriptDetailSheet extends StatelessWidget {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          mockSentences[index],
-                          style: const TextStyle(fontSize: 14),
-                        ),
+                        child: Text(line, style: const TextStyle(fontSize: 14)),
                       ),
                       const SizedBox(width: 10),
                       IconButton(
                         icon: const Icon(
                           Icons.copy,
-                          color: const Color(0xFF586AFE),
+                          color: Color(0xFF586AFE),
                           size: 20,
                         ),
-                        onPressed: () =>
-                            _copyToClipboard(context, mockSentences[index]),
+                        onPressed: () => _copyToClipboard(context, line),
                       ),
                     ],
                   ),

@@ -1,33 +1,259 @@
 # Rime dictionary for Nine-key (T9) Pinyin input
-# A minimal dictionary for demonstration.
+# 词典增强：基础高频词 + 日常聊天 + 恋爱语料（高权重）
 
 ---
 name: luna_pinyin
-version: "1.0"
+version: "2.0"
 sort: by_weight
 use_preset_vocabulary: false
 ...
 
-你好	ni hao	100
-我	wo	90
-是	shi	90
-的	de	90
-你	ni	80
-好	hao	80
-老板	lao ban	70
-请假	qing jia	70
-今天	jin tian	70
-病	bing	60
-了	le	60
-在	zai	60
-测试	ce shi	50
-键盘	jian pan	50
-输入法	shu ru fa	40
-九宫格	jiu gong ge	40
-爱	ai	30
-键	jian	30
-盘	pan	30
-真	zhen	30
-正	zheng	30
-功	gong	30
-能	neng	30
+# ---------- 基础高频 ----------
+的	de	10000
+一	yi	9500
+是	shi	9200
+不	bu	9000
+了	le	8800
+在	zai	8600
+人	ren	8400
+有	you	8200
+我	wo	8100
+你	ni	8000
+好	hao	7900
+他	ta	7800
+这	zhe	7600
+中	zhong	7500
+大	da	7400
+来	lai	7300
+上	shang	7200
+国	guo	7100
+个	ge	7000
+到	dao	6900
+说	shuo	6800
+们	men	6700
+为	wei	6600
+子	zi	6500
+和	he	6400
+地	de	6300
+出	chu	6200
+道	dao	6100
+也	ye	6000
+时	shi	5900
+年	nian	5800
+得	de	5700
+就	jiu	5600
+那	na	5500
+要	yao	5400
+下	xia	5300
+以	yi	5200
+生	sheng	5100
+会	hui	5000
+自	zi	4900
+着	zhe	4800
+去	qu	4700
+过	guo	4600
+家	jia	4500
+学	xue	4400
+对	dui	4300
+可	ke	4200
+她	ta	4100
+里	li	4000
+后	hou	3900
+小	xiao	3800
+么	me	3700
+心	xin	3600
+多	duo	3500
+天	tian	3400
+而	er	3300
+能	neng	3200
+都	dou	3100
+然	ran	3000
+没	mei	2900
+日	ri	2800
+于	yu	2700
+起	qi	2600
+还	hai	2500
+发	fa	2400
+成	cheng	2300
+事	shi	2200
+只	zhi	2100
+作	zuo	2000
+当	dang	1900
+想	xiang	1800
+看	kan	1700
+文	wen	1600
+无	wu	1500
+开	kai	1400
+手	shou	1300
+十	shi	1200
+用	yong	1100
+主	zhu	1000
+行	xing	990
+方	fang	980
+又	you	970
+如	ru	960
+前	qian	950
+所	suo	940
+本	ben	930
+见	jian	920
+经	jing	910
+头	tou	900
+面	mian	890
+公	gong	880
+同	tong	870
+三	san	860
+已	yi	850
+老	lao	840
+从	cong	830
+动	dong	820
+两	liang	810
+长	chang	800
+知	zhi	790
+民	min	780
+样	yang	770
+现	xian	760
+分	fen	750
+将	jiang	740
+外	wai	730
+但	dan	720
+身	shen	710
+些	xie	700
+与	yu	690
+高	gao	680
+意	yi	670
+进	jin	660
+把	ba	650
+法	fa	640
+此	ci	630
+实	shi	620
+回	hui	610
+二	er	600
+理	li	590
+美	mei	580
+点	dian	570
+月	yue	560
+明	ming	550
+其	qi	540
+等	deng	530
+爱	ai	520
+键	jian	510
+盘	pan	500
+真	zhen	490
+正	zheng	480
+功	gong	470
+能	neng	460
+
+# ---------- 日常聊天 ----------
+今天	jin tian	900
+明天	ming tian	850
+昨天	zuo tian	800
+早上	zao shang	780
+晚上	wan shang	770
+中午	zhong wu	750
+周末	zhou mo	700
+吃饭	chi fan	680
+睡觉	shui jiao	670
+上班	shang ban	660
+下班	xia ban	650
+加班	jia ban	640
+地铁	di tie	600
+公交	gong jiao	590
+天气	tian qi	580
+下雨	xia yu	570
+开心	kai xin	560
+难过	nan guo	550
+生气	sheng qi	540
+无聊	wu liao	530
+电影	dian ying	520
+音乐	yin yue	510
+游戏	you xi	500
+旅行	lv xing	490
+咖啡	ka fei	480
+奶茶	nai cha	470
+火锅	huo guo	460
+健身	jian shen	450
+跑步	pao bu	440
+散步	san bu	430
+请假	qing jia	420
+老板	lao ban	410
+工作	gong zuo	400
+消息	xiao xi	390
+手机	shou ji	380
+微信	wei xin	370
+看到	kan dao	360
+知道	zhi dao	350
+喜欢	xi huan	340
+觉得	jue de	330
+真的	zhen de	320
+真的吗	zhen de ma	310
+哈哈哈哈	ha ha ha ha	300
+好啊	hao a	290
+好的	hao de	280
+嗯嗯	en en	270
+哦哦	o o	260
+没事	mei shi	250
+没关系	mei guan xi	240
+测试	ce shi	230
+键盘	jian pan	220
+输入法	shu ru fa	210
+九宫格	jiu gong ge	200
+
+# ---------- 恋爱 / 亲密（高权重） ----------
+亲爱的	qin ai de	800
+宝贝	bao bei	780
+宝宝	bao bao	770
+老婆	lao po	760
+老公	lao gong	750
+女朋友	nv peng you	740
+男朋友	nan peng you	730
+么么哒	me me da	720
+木马	mu ma	710
+抱抱	bao bao	700
+亲亲	qin qin	690
+想你了	xiang ni le	680
+我想你	wo xiang ni	670
+我也想你	wo ye xiang ni	660
+我喜欢你	wo xi huan ni	650
+爱你	ai ni	640
+我爱你	wo ai ni	630
+好喜欢你	hao xi huan ni	620
+晚安	wan an	610
+早安	zao an	600
+约会	yue hui	590
+牵手	qian shou	580
+拥抱	yong bao	570
+心动	xin dong	560
+暧昧	ai mei	550
+甜蜜	tian mi	540
+浪漫	lang man	530
+温柔	wen rou	520
+陪伴	pei ban	510
+想念	xiang nian	500
+告白	gao bai	490
+在一起	zai yi qi	480
+恋爱	lian ai	470
+在干嘛	zai gan ma	460
+干嘛呢	gan ma ne	450
+有没有想我	you mei you xiang wo	440
+让我抱抱你	rang wo bao bao ni	430
+余生	yu sheng	420
+陪你	pei ni	410
+永远	yong yuan	400
+永远爱你	yong yuan ai ni	390
+一辈子	yi bei zi	380
+最重要的人	zui zhong yao de ren	370
+你最重要	ni zui zhong yao	360
+好想你	hao xiang ni	350
+超级想你	chao ji xiang ni	340
+今晚一起吃晚饭吧	jin wan yi qi chi wan fan ba	330
+晚安亲爱的	wan an qin ai de	320
+早安宝贝	zao an bao bei	310
+情人节	qing ren jie	300
+纪念日	ji nian ri	290
+惊喜	jing xi	280
+礼物	li wu	270
+约会吗	yue hui ma	260
+甜	tian	250
+想你	xiang ni	240
+亲	qin	230
+爱	ai	220

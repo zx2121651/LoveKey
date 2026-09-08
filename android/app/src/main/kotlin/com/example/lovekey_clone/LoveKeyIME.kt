@@ -4,9 +4,12 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.SharedPreferences
 import android.inputmethodservice.InputMethodService
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import java.util.concurrent.atomic.AtomicBoolean
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -32,6 +35,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -76,6 +81,20 @@ class LoveKeyIME : InputMethodService() {
     /** 设置变更监听注销句柄，避免泄漏 */
     private var settingsListenerUnregister: Runnable? = null
 
+    /** Rime 引擎是否就绪（异步初始化） */
+    private val rimeReady = AtomicBoolean(false)
+
+    /** 初始化期间缓冲的按键，引擎就绪后回放 */
+    private val pendingKeys = mutableListOf<String>()
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    /** 中/英文模式（引擎 ascii_mode 开关） */
+    private val isAsciiMode = mutableStateOf(false)
+
+    /** 上屏后的联想词（引擎支持时非空） */
+    private val associateCandidates = mutableStateOf<List<String>>(emptyList())
+
     override fun onCreate() {
         super.onCreate()
         lifecycleOwner = IMELifecycleOwner()
@@ -87,11 +106,14 @@ class LoveKeyIME : InputMethodService() {
         RimeDeployer.deployAssets(this, rimePath)
 
         // 2. Initialize YuyanIme Engine (Sogou Wrapper)
-        try {
-            Rime.startup(this, false)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        //    后台线程初始化，避免词库加载阻塞主线程、卡住首弹键盘；
+        //    就绪前输入的按键先缓冲，就绪后回放。
+        rimeReady.set(false)
+        Thread {
+            runCatching { Rime.startup(this, false) }
+            rimeReady.set(true)
+            mainHandler.post { onRimeReady() }
+        }.start()
 
         // 3. 实时同步 Flutter 侧设置：亲密度 / 人设变化即时生效，无需等键盘重开
         settingsListenerUnregister = SettingsStore.registerChangeListener(
@@ -103,6 +125,79 @@ class LoveKeyIME : InputMethodService() {
                 }
             }
         )
+    }
+
+    // ------------------------------------------------------------------
+    // Rime 增强：异步就绪 / 按键缓冲 / 翻页 / 中英切换 / 联想
+    // ------------------------------------------------------------------
+
+    /** 引擎就绪：同步西文模式状态，并回放初始化期间缓冲的按键 */
+    private fun onRimeReady() {
+        isAsciiMode.value = Rime.isAsciiMode
+        val buffered = synchronized(pendingKeys) {
+            pendingKeys.toList().also { pendingKeys.clear() }
+        }
+        buffered.forEach { handleKeyPress(it) }
+    }
+
+    private fun handleKeyPress(key: String) {
+        if (!rimeReady.get()) {
+            synchronized(pendingKeys) { pendingKeys.add(key) }
+            return
+        }
+        // 西文模式：按键直接上屏，不走引擎
+        if (isAsciiMode.value) {
+            currentInputConnection?.commitText(key, 1)
+            return
+        }
+        val keycode = key.firstOrNull()?.code ?: 0
+        val handled = Rime.processKey(keycode, 0)
+        if (handled) {
+            currentComposingText.value = Rime.compositionText
+            currentInputConnection?.setComposingText(currentComposingText.value, 1)
+            currentCandidates.value = Rime.mContext?.candidates?.map { it.text } ?: emptyList()
+        } else {
+            currentInputConnection?.commitText(key, 1)
+        }
+    }
+
+    /** 中/英切换：拨动引擎 ascii_mode 开关 */
+    private fun toggleAsciiMode() {
+        if (!rimeReady.get()) return
+        val target = !Rime.isAsciiMode
+        Rime.setOption("ascii_mode", target)
+        Rime.updateStatus()
+        isAsciiMode.value = Rime.isAsciiMode
+        if (target) {
+            // 切到西文时清空拼音输入态
+            Rime.clearComposition()
+            currentComposingText.value = ""
+            currentCandidates.value = emptyList()
+        }
+    }
+
+    private fun pageUpCandidates() {
+        if (Rime.pageUp()) refreshCandidatesAfterPage()
+    }
+
+    private fun pageDownCandidates() {
+        if (Rime.pageDown()) refreshCandidatesAfterPage()
+    }
+
+    private fun refreshCandidatesAfterPage() {
+        currentCandidates.value = Rime.mContext?.candidates?.map { it.text } ?: emptyList()
+        currentComposingText.value = Rime.compositionText
+    }
+
+    /** 候选上屏后尝试取联想词（引擎/词典不支持时返回空，静默隐藏该行） */
+    private fun afterCommit(committedText: String) {
+        if (committedText.isEmpty()) {
+            associateCandidates.value = emptyList()
+            return
+        }
+        val associates = runCatching { Rime.getAssociateList(committedText.takeLast(1)) }
+            .getOrNull()?.filterNotNull()?.filter { it.isNotBlank() } ?: emptyList()
+        associateCandidates.value = associates
     }
 
     override fun onUpdateSelection(
@@ -130,13 +225,31 @@ class LoveKeyIME : InputMethodService() {
                 val composing = currentComposingText.value
                 val candidates = currentCandidates.value
 
+                // 候选翻页状态（仅拼音输入中有效）
+                val rimeMenu = Rime.mContext?.menu
+                val pageNo = rimeMenu?.pageNo ?: 0
+                val canPrev = pageNo > 0
+                val canNext = rimeMenu?.isLastPage == false
+
                 MaterialTheme {
                     LoveKeyKeyboardUI(
                         draftText = draft,
                         composingText = composing,
                         candidates = candidates,
+                        pageNo = pageNo,
+                        canPrev = canPrev,
+                        canNext = canNext,
+                        asciiMode = isAsciiMode.value,
+                        associates = associateCandidates.value,
                         intimacy = intimacyLevel.value,
                         personaName = personaName.value,
+                        onToggleAscii = { toggleAsciiMode() },
+                        onPageUp = { pageUpCandidates() },
+                        onPageDown = { pageDownCandidates() },
+                        onCommitAssociate = { word ->
+                            currentInputConnection?.commitText(word, 1)
+                            associateCandidates.value = emptyList()
+                        },
                         onSetIntimacy = { level ->
                             intimacyLevel.value = level
                             SettingsStore.setIntimacy(this@LoveKeyIME, level)
@@ -146,18 +259,7 @@ class LoveKeyIME : InputMethodService() {
                             SettingsStore.setPersona(this@LoveKeyIME, name)
                         },
                         onKeyPress = { key ->
-                            val keycode = key.firstOrNull()?.code ?: 0
-                            val handled = Rime.processKey(keycode, 0)
-
-                            if (handled) {
-                                currentComposingText.value = Rime.compositionText
-                                currentInputConnection?.setComposingText(currentComposingText.value, 1)
-
-                                val candidates = Rime.mContext?.candidates ?: emptyArray()
-                                currentCandidates.value = candidates.map { it.text }
-                            } else {
-                                currentInputConnection?.commitText(key, 1)
-                            }
+                            handleKeyPress(key)
                         },
                         onCommitCandidate = { candidate ->
                             val index = currentCandidates.value.indexOf(candidate)
@@ -165,9 +267,10 @@ class LoveKeyIME : InputMethodService() {
                                 Rime.selectCandidate(index)
 
                                 val commit = Rime.getRimeCommit()
-                                if (commit?.commitText != null && commit.commitText.isNotEmpty()) {
+                                val committed = if (commit?.commitText != null && commit.commitText.isNotEmpty()) {
                                     currentInputConnection?.commitText(commit.commitText, 1)
-                                }
+                                    commit.commitText
+                                } else ""
 
                                 currentComposingText.value = Rime.compositionText
                                 if (currentComposingText.value.isEmpty()) {
@@ -177,11 +280,13 @@ class LoveKeyIME : InputMethodService() {
                                     val candidates = Rime.mContext?.candidates ?: emptyArray()
                                     currentCandidates.value = candidates.map { it.text }
                                 }
+                                afterCommit(committed)
                             } else {
                                 currentInputConnection?.commitText(candidate, 1)
                                 Rime.clearComposition()
                                 currentComposingText.value = ""
                                 currentCandidates.value = emptyList()
+                                afterCommit(candidate)
                             }
                         },
                         onDelete = {
@@ -239,6 +344,9 @@ class LoveKeyIME : InputMethodService() {
         // so changes made in the Flutter host app take effect immediately.
         intimacyLevel.value = SettingsStore.getIntimacy(this)
         personaName.value = SettingsStore.getPersona(this)
+        if (rimeReady.get()) {
+            isAsciiMode.value = Rime.isAsciiMode
+        }
     }
 
     override fun onWindowHidden() {
@@ -259,6 +367,11 @@ fun LoveKeyKeyboardUI(
     draftText: String,
     composingText: String,
     candidates: List<String>,
+    pageNo: Int,
+    canPrev: Boolean,
+    canNext: Boolean,
+    asciiMode: Boolean,
+    associates: List<String>,
     intimacy: Int,
     personaName: String,
     onSetIntimacy: (Int) -> Unit,
@@ -267,7 +380,11 @@ fun LoveKeyKeyboardUI(
     onCommitCandidate: (String) -> Unit,
     onDelete: () -> Unit,
     onReplaceDraft: (String) -> Unit,
-    onPerformAction: () -> Unit
+    onPerformAction: () -> Unit,
+    onToggleAscii: () -> Unit,
+    onPageUp: () -> Unit,
+    onPageDown: () -> Unit,
+    onCommitAssociate: (String) -> Unit
 ) {
     var isGenerating by remember { mutableStateOf(false) }
     var activeTab by remember { mutableStateOf("keyboard") } // keyboard, ai_reply, quick_reply, custom_prompt, refine_draft
@@ -453,6 +570,37 @@ fun LoveKeyKeyboardUI(
                     }
                 }
 
+                // 候选翻页：有候选且存在上一页/下一页时显示翻页箭头
+                if (candidates.isNotEmpty() && (canPrev || canNext)) {
+                    IconButton(
+                        onClick = onPageUp,
+                        enabled = canPrev,
+                        modifier = Modifier.size(28.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.KeyboardArrowLeft,
+                            contentDescription = "上一页",
+                            tint = if (canPrev) Color(0xFF586AFE) else Color(0xFFCCCCCC),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Text("${pageNo + 1}", color = Color(0xFF888888), fontSize = 11.sp)
+                    IconButton(
+                        onClick = onPageDown,
+                        enabled = canNext,
+                        modifier = Modifier.size(28.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.KeyboardArrowRight,
+                            contentDescription = "下一页",
+                            tint = if (canNext) Color(0xFF586AFE) else Color(0xFFCCCCCC),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.width(8.dp))
 
                 // Breathing Animation logic for long drafts
@@ -487,6 +635,37 @@ fun LoveKeyKeyboardUI(
                     elevation = ButtonDefaults.elevation(2.dp)
                 ) {
                     Text("✨换个说法", color = Color(0xFFFFFFFF), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        // 联想词行：上屏后由引擎联想（不支持时为空，整行隐藏）
+        if (associates.isNotEmpty()) {
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFECEEFF))
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                item {
+                    Text(
+                        text = "联想",
+                        color = Color(0xFF8A9CFF),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                items(associates) { word ->
+                    Text(
+                        text = word,
+                        color = Color(0xFF2B2F35),
+                        fontSize = 15.sp,
+                        modifier = Modifier
+                            .clickable { onCommitAssociate(word) }
+                            .padding(vertical = 4.dp)
+                    )
                 }
             }
         }
@@ -921,7 +1100,13 @@ fun LoveKeyKeyboardUI(
             }
         } else {
             // T9 Keyboard Mode
-            T9KeyboardGrid(onKeyPress = onKeyPress, onDelete = onDelete, onPerformAction = onPerformAction)
+            T9KeyboardGrid(
+                asciiMode = asciiMode,
+                onToggleAscii = onToggleAscii,
+                onKeyPress = onKeyPress,
+                onDelete = onDelete,
+                onPerformAction = onPerformAction
+            )
         }
 
         // Paywall Overlay
@@ -1002,7 +1187,13 @@ fun LoveKeyKeyboardUI(
     }
 
 @Composable
-fun T9KeyboardGrid(onKeyPress: (String) -> Unit, onDelete: () -> Unit, onPerformAction: () -> Unit) {
+fun T9KeyboardGrid(
+    asciiMode: Boolean,
+    onToggleAscii: () -> Unit,
+    onKeyPress: (String) -> Unit,
+    onDelete: () -> Unit,
+    onPerformAction: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1045,7 +1236,7 @@ fun T9KeyboardGrid(onKeyPress: (String) -> Unit, onDelete: () -> Unit, onPerform
                     KeyButton(text = "!", modifier = Modifier.weight(1f), bgColor = Color(0xFFB0B3BE), onClick = { onKeyPress("!") })
                     KeyButton(text = "123", modifier = Modifier.weight(1.5f), onClick = { onKeyPress("123") })
                     KeyButton(text = "␣", modifier = Modifier.weight(3f), onClick = { onKeyPress(" ") }) // Spacebar spans 2 columns
-                    KeyButton(text = "中/英", modifier = Modifier.weight(1.5f), onClick = { /* Switch Lang */ })
+                    KeyButton(text = if (asciiMode) "EN" else "中/英", modifier = Modifier.weight(1.5f), onClick = onToggleAscii)
                 }
             }
 

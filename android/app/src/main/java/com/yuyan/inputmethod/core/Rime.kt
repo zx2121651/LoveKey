@@ -73,11 +73,35 @@ class Rime(context: Context, fullCheck: Boolean) {
         @JvmStatic
         fun processKey(keycode: Int, mask: Int): Boolean {
             if (keycode <= 0 || keycode == 0xffffff) return false
-            setRimePageSize(100)
             return processRimeKey(keycode, mask).also {
                 updateContext()
             }
         }
+
+        /** 设置候选每页数量（默认由 default.custom.yaml 的 menu.page_size 决定） */
+        @JvmStatic
+        fun setPageSize(size: Int) {
+            setRimePageSize(size.coerceIn(1, 100))
+        }
+
+        /** 候选翻页：上一页 / 下一页 */
+        @JvmStatic
+        fun pageUp(): Boolean = processKey(getRimeKeycodeByName("Page_Up"), 0)
+
+        @JvmStatic
+        fun pageDown(): Boolean = processKey(getRimeKeycodeByName("Page_Down"), 0)
+
+        @JvmStatic
+        val isAsciiMode: Boolean get() = mStatus?.isAsciiMode ?: false
+
+        @JvmStatic
+        val hasPrevPage: Boolean get() = (mContext?.menu?.pageNo ?: 0) > 0
+
+        @JvmStatic
+        val hasNextPage: Boolean get() = mContext?.menu?.isLastPage == false
+
+        @JvmStatic
+        val currentPageNo: Int get() = mContext?.menu?.pageNo ?: 0
 
         @JvmStatic
         fun replaceKey(caretPos: Int, length: Int, key: String): Boolean {

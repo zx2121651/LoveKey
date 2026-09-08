@@ -468,6 +468,10 @@ fun LoveKeyKeyboardUI(
             .take(12)
     }
 
+    // 键盘主题：从设置桥读取，切换即时生效并持久化
+    var themeName by remember { mutableStateOf(SettingsStore.getThemeName(context)) }
+    val uiTheme = KEYBOARD_THEMES.firstOrNull { it.name == themeName } ?: KEYBOARD_THEMES.first()
+
     // VIP and Usage logic
     var isVip by remember { mutableStateOf(false) }
     var freeUsageCount by remember { mutableStateOf(3) }
@@ -511,11 +515,12 @@ fun LoveKeyKeyboardUI(
         (listOf("通用", "高情商", "幽默", "温柔暖男", "暧昧拉扯", "土味情话", "霸总", "萌妹") + listOf(personaName))
             .distinct()
 
+    CompositionLocalProvider(LocalKeyboardTheme provides uiTheme) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                SolidColor(Color(0xFFF4F6FE))
+                SolidColor(LocalKeyboardTheme.current.panelBg)
             )
             .padding(bottom = 8.dp) // Slight bottom padding
     ) {
@@ -533,7 +538,7 @@ fun LoveKeyKeyboardUI(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF586AFE), CircleShape),
+                        .background(LocalKeyboardTheme.current.accent, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("☺️", fontSize = 18.sp) // Simplified icon
@@ -590,6 +595,28 @@ fun LoveKeyKeyboardUI(
                 }
 
                 Spacer(modifier = Modifier.weight(1f))
+
+                // 键盘皮肤快捷入口：圆点显示当前主题色，点击弹出皮肤面板
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(LocalKeyboardTheme.current.softBg, RoundedCornerShape(18.dp))
+                        .border(1.dp, LocalKeyboardTheme.current.accent.copy(alpha = 0.35f), RoundedCornerShape(18.dp))
+                        .clickable {
+                            activeTab = if (activeTab != "theme") "theme" else "keyboard"
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .clip(CircleShape)
+                            .background(LocalKeyboardTheme.current.accent)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
 
                 // History Icon
                 Box(
@@ -672,7 +699,7 @@ fun LoveKeyKeyboardUI(
                         Icon(
                             Icons.Default.KeyboardArrowLeft,
                             contentDescription = "上一页",
-                            tint = if (canPrev) Color(0xFF586AFE) else Color(0xFFCCCCCC),
+                            tint = if (canPrev) LocalKeyboardTheme.current.accent else Color(0xFFCCCCCC),
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -686,7 +713,7 @@ fun LoveKeyKeyboardUI(
                         Icon(
                             Icons.Default.KeyboardArrowRight,
                             contentDescription = "下一页",
-                            tint = if (canNext) Color(0xFF586AFE) else Color(0xFFCCCCCC),
+                            tint = if (canNext) LocalKeyboardTheme.current.accent else Color(0xFFCCCCCC),
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -714,7 +741,7 @@ fun LoveKeyKeyboardUI(
                             isGenerating = true
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF586AFE)),
+                    colors = ButtonDefaults.buttonColors(backgroundColor = LocalKeyboardTheme.current.accent),
                     shape = RoundedCornerShape(18.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                     modifier = Modifier
@@ -735,7 +762,7 @@ fun LoveKeyKeyboardUI(
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFFECEEFF))
+                    .background(LocalKeyboardTheme.current.softBg)
                     .padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -743,7 +770,7 @@ fun LoveKeyKeyboardUI(
                 item {
                     Text(
                         text = "联想",
-                        color = Color(0xFF8A9CFF),
+                        color = LocalKeyboardTheme.current.accent.copy(alpha = 0.6f),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -767,7 +794,7 @@ fun LoveKeyKeyboardUI(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                    .background(Color(0xFFF4F6FE))
+                    .background(LocalKeyboardTheme.current.panelBg)
                     .height(300.dp)
             ) {
                 // Header of AI Reply
@@ -826,12 +853,12 @@ fun LoveKeyKeyboardUI(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(14.dp))
                                 .background(
-                                    if (selected) Color(0xFF586AFE) else Color.White,
+                                    if (selected) LocalKeyboardTheme.current.accent else Color.White,
                                     RoundedCornerShape(14.dp)
                                 )
                                 .border(
                                     1.dp,
-                                    if (selected) Color(0xFF586AFE) else Color(0xFFDFE2EC),
+                                    if (selected) LocalKeyboardTheme.current.accent else Color(0xFFDFE2EC),
                                     RoundedCornerShape(14.dp)
                                 )
                                 .clickable {
@@ -858,7 +885,7 @@ fun LoveKeyKeyboardUI(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(Color.White, RoundedCornerShape(12.dp)).border(1.dp, Color(0xFFEEF0F9), RoundedCornerShape(12.dp))
+                                .background(Color.White, RoundedCornerShape(12.dp)).border(1.dp, LocalKeyboardTheme.current.softBg, RoundedCornerShape(12.dp))
                                 .clickable {
                                     onCommitCandidate(replyPair.second)
                                     activeTab = "keyboard"
@@ -868,7 +895,7 @@ fun LoveKeyKeyboardUI(
                             Column {
                                 Text(
                                     text = replyPair.first,
-                                    color = Color(0xFF8A9CFF),
+                                    color = LocalKeyboardTheme.current.accent.copy(alpha = 0.6f),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -914,7 +941,7 @@ fun LoveKeyKeyboardUI(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                    .background(Color(0xFFF4F6FE))
+                    .background(LocalKeyboardTheme.current.panelBg)
                     .height(320.dp)
             ) {
                 Row(
@@ -942,9 +969,9 @@ fun LoveKeyKeyboardUI(
                         valueRange = 0f..100f,
                         modifier = Modifier.width(110.dp),
                         colors = SliderDefaults.colors(
-                            thumbColor = Color(0xFF586AFE),
-                            activeTrackColor = Color(0xFF586AFE),
-                            inactiveTrackColor = Color(0xFF586AFE).copy(alpha = 0.15f)
+                            thumbColor = LocalKeyboardTheme.current.accent,
+                            activeTrackColor = LocalKeyboardTheme.current.accent,
+                            inactiveTrackColor = LocalKeyboardTheme.current.accent.copy(alpha = 0.15f)
                         )
                     )
                     Text(
@@ -996,10 +1023,10 @@ fun LoveKeyKeyboardUI(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(14.dp))
                                     .background(
-                                        if (selected) Color(0xFF586AFE) else Color.White,
+                                        if (selected) LocalKeyboardTheme.current.accent else Color.White,
                                         RoundedCornerShape(14.dp)
                                     )
-                                    .border(1.dp, if (selected) Color(0xFF586AFE) else Color(0xFFDFE2EC), RoundedCornerShape(14.dp))
+                                    .border(1.dp, if (selected) LocalKeyboardTheme.current.accent else Color(0xFFDFE2EC), RoundedCornerShape(14.dp))
                                     .clickable { quickScene = scene }
                                     .padding(horizontal = 12.dp, vertical = 5.dp)
                             ) {
@@ -1029,7 +1056,7 @@ fun LoveKeyKeyboardUI(
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = "添加自定义话术",
-                            tint = Color(0xFF586AFE),
+                            tint = LocalKeyboardTheme.current.accent,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -1051,7 +1078,7 @@ fun LoveKeyKeyboardUI(
                             colors = TextFieldDefaults.outlinedTextFieldColors(
                                 backgroundColor = Color.White,
                                 unfocusedBorderColor = Color(0xFFDFE2EC),
-                                focusedBorderColor = Color(0xFF8A9CFF)
+                                focusedBorderColor = LocalKeyboardTheme.current.accent.copy(alpha = 0.6f)
                             ),
                             shape = RoundedCornerShape(12.dp)
                         )
@@ -1073,7 +1100,7 @@ fun LoveKeyKeyboardUI(
                                     showCustomPhraseInput = false
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF586AFE)),
+                            colors = ButtonDefaults.buttonColors(backgroundColor = LocalKeyboardTheme.current.accent),
                             shape = RoundedCornerShape(12.dp),
                             contentPadding = PaddingValues(horizontal = 12.dp),
                             modifier = Modifier.height(44.dp),
@@ -1096,7 +1123,7 @@ fun LoveKeyKeyboardUI(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(Color.White, RoundedCornerShape(12.dp)).border(1.dp, Color(0xFFEEF0F9), RoundedCornerShape(12.dp))
+                                .background(Color.White, RoundedCornerShape(12.dp)).border(1.dp, LocalKeyboardTheme.current.softBg, RoundedCornerShape(12.dp))
                                 .clickable {
                                     onCommitCandidate(replyPair.second)
                                     activeTab = "keyboard"
@@ -1106,7 +1133,7 @@ fun LoveKeyKeyboardUI(
                             Column {
                                 Text(
                                     text = replyPair.first,
-                                    color = Color(0xFF8A9CFF),
+                                    color = LocalKeyboardTheme.current.accent.copy(alpha = 0.6f),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -1121,7 +1148,7 @@ fun LoveKeyKeyboardUI(
                                     Icon(
                                         imageVector = Icons.Default.Send,
                                         contentDescription = "Send",
-                                        tint = Color(0xFF586AFE),
+                                        tint = LocalKeyboardTheme.current.accent,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
@@ -1148,7 +1175,7 @@ fun LoveKeyKeyboardUI(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                    .background(Color(0xFFF4F6FE))
+                    .background(LocalKeyboardTheme.current.panelBg)
                     .height(300.dp)
             ) {
                 // Header
@@ -1179,7 +1206,7 @@ fun LoveKeyKeyboardUI(
                     // Loading State
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(color = Color(0xFF8A9CFF), modifier = Modifier.size(48.dp))
+                            CircularProgressIndicator(color = LocalKeyboardTheme.current.accent, modifier = Modifier.size(48.dp))
                             Spacer(modifier = Modifier.height(16.dp))
                             Text("AI 恋爱专家正在分析...", color = Color(0xFF888888), fontSize = 14.sp)
                         }
@@ -1195,7 +1222,7 @@ fun LoveKeyKeyboardUI(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(Color.White, RoundedCornerShape(12.dp)).border(1.dp, Color(0xFFEEF0F9), RoundedCornerShape(12.dp))
+                                    .background(Color.White, RoundedCornerShape(12.dp)).border(1.dp, LocalKeyboardTheme.current.softBg, RoundedCornerShape(12.dp))
                                     .clickable {
                                         onReplaceDraft(replyPair.second)
                                         activeTab = "keyboard"
@@ -1265,7 +1292,7 @@ fun LoveKeyKeyboardUI(
                     colors = TextFieldDefaults.outlinedTextFieldColors(
                         backgroundColor = Color(0xFFF3F4F6),
                         unfocusedBorderColor = Color.Transparent,
-                        focusedBorderColor = Color(0xFF8A9CFF)
+                        focusedBorderColor = LocalKeyboardTheme.current.accent.copy(alpha = 0.6f)
                     ),
                     shape = RoundedCornerShape(12.dp)
                 )
@@ -1287,7 +1314,7 @@ fun LoveKeyKeyboardUI(
                         }
                     },
                     modifier = Modifier.fillMaxWidth().height(48.dp),
-                    colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF586AFE)),
+                    colors = ButtonDefaults.buttonColors(backgroundColor = LocalKeyboardTheme.current.accent),
                     shape = RoundedCornerShape(24.dp),
                     enabled = !isGenerating
                 ) {
@@ -1319,6 +1346,16 @@ fun LoveKeyKeyboardUI(
                 onClear = {
                     SettingsStore.clearClipboard(context)
                     refreshClipboard()
+                },
+                onClose = { activeTab = "keyboard" }
+            )
+        } else if (activeTab == "theme") {
+            // 键盘皮肤面板：选择即切换并持久化
+            ThemePanel(
+                currentName = themeName,
+                onSelect = { name ->
+                    themeName = name
+                    SettingsStore.setThemeName(context, name)
                 },
                 onClose = { activeTab = "keyboard" }
             )
@@ -1409,6 +1446,7 @@ fun LoveKeyKeyboardUI(
         }
         } // End of Box Stack
     }
+    } // End of CompositionLocalProvider
 
 @Composable
 fun T9KeyboardGrid(
@@ -1545,7 +1583,7 @@ private fun EmojiPanel(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-            .background(Color(0xFFF4F6FE))
+            .background(LocalKeyboardTheme.current.panelBg)
             .height(320.dp)
     ) {
         Row(
@@ -1574,7 +1612,7 @@ private fun EmojiPanel(
                         modifier = Modifier
                             .clip(RoundedCornerShape(12.dp))
                             .background(
-                                if (emojiTab == index) Color(0xFF586AFE) else Color.Transparent,
+                                if (emojiTab == index) LocalKeyboardTheme.current.accent else Color.Transparent,
                                 RoundedCornerShape(12.dp)
                             )
                             .clickable { emojiTab = index }
@@ -1665,7 +1703,7 @@ private fun SymbolPanel(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-            .background(Color(0xFFF4F6FE))
+            .background(LocalKeyboardTheme.current.panelBg)
             .height(320.dp)
     ) {
         Row(
@@ -1688,7 +1726,7 @@ private fun SymbolPanel(
                         .size(if (index == symbolPage) 18.dp else 8.dp)
                         .clip(CircleShape)
                         .background(
-                            if (index == symbolPage) Color(0xFF586AFE) else Color(0xFFC9CDD8)
+                            if (index == symbolPage) LocalKeyboardTheme.current.accent else Color(0xFFC9CDD8)
                         )
                         .clickable { symbolPage = index }
                 )
@@ -1741,11 +1779,110 @@ private fun SymbolPanel(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
                 .height(44.dp),
-            colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF586AFE)),
+            colors = ButtonDefaults.buttonColors(backgroundColor = LocalKeyboardTheme.current.accent),
             shape = RoundedCornerShape(22.dp)
         ) {
             Text("完成", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
+    }
+}
+
+@Composable
+private fun ThemePanel(
+    currentName: String,
+    onSelect: (String) -> Unit,
+    onClose: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            .background(LocalKeyboardTheme.current.panelBg)
+            .height(240.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "🎨 键盘皮肤",
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 18.sp,
+                color = Color(0xFF2B2F35)
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Close",
+                tint = Color(0xFF888888),
+                modifier = Modifier
+                    .size(20.dp)
+                    .clickable { onClose() }
+            )
+        }
+
+        // 皮肤横向选择条：色板 = 主题色 + 软色 + 面板色
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(KEYBOARD_THEMES) { t ->
+                val selected = t.name == currentName
+                Column(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(if (selected) LocalKeyboardTheme.current.softBg else Color.White, RoundedCornerShape(14.dp))
+                        .border(1.dp, if (selected) LocalKeyboardTheme.current.accent else Color(0xFFDFE2EC), RoundedCornerShape(14.dp))
+                        .clickable { onSelect(t.name) }
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(22.dp)
+                                .clip(CircleShape)
+                                .background(t.accent)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(22.dp)
+                                .clip(CircleShape)
+                                .background(t.softBg)
+                                .border(1.dp, t.accent.copy(alpha = 0.4f), CircleShape)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = t.name,
+                        color = if (selected) LocalKeyboardTheme.current.accent else Color(0xFF2B2F35),
+                        fontSize = 12.sp,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(10.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(t.panelBg)
+                            .border(1.dp, t.accent.copy(alpha = 0.3f), RoundedCornerShape(3.dp))
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+        Text(
+            text = "选中皮肤即时生效并自动保存",
+            color = Color(0xFF8A8F99),
+            fontSize = 11.sp,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
     }
 }
 
@@ -1761,7 +1898,7 @@ private fun ClipboardPanel(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-            .background(Color(0xFFF4F6FE))
+            .background(LocalKeyboardTheme.current.panelBg)
             .height(320.dp)
     ) {
         Row(
@@ -1863,6 +2000,32 @@ private fun ClipboardPanel(
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// 键盘主题（外观皮肤）
+// ---------------------------------------------------------------------------
+
+/** 默认主题（经典蓝）的颜色常量：同时供 KEYBOARD_THEMES 与 UI 主题化引用 */
+private val THEME_BLUE_ACCENT = Color(0xFF586AFE)
+private val THEME_BLUE_PANEL = Color(0xFFF4F6FE)
+private val THEME_BLUE_SOFT = Color(0xFFECEEFF)
+
+/** 键盘主题：主色 / 面板底色 / 柔和强调色 */
+data class KeyboardTheme(
+    val name: String,
+    val accent: Color,
+    val panelBg: Color,
+    val softBg: Color
+)
+
+val KEYBOARD_THEMES = listOf(
+    KeyboardTheme("经典蓝", THEME_BLUE_ACCENT, THEME_BLUE_PANEL, THEME_BLUE_SOFT),
+    KeyboardTheme("爱恋粉", Color(0xFFF06C9B), Color(0xFFFDF2F6), Color(0xFFFFE9F1)),
+    KeyboardTheme("星空紫", Color(0xFF8E7CF3), Color(0xFFF3F1FD), Color(0xFFECE9FC)),
+    KeyboardTheme("薄荷绿", Color(0xFF2FB98A), Color(0xFFEFFAF6), Color(0xFFE2F6EF))
+)
+
+val LocalKeyboardTheme = staticCompositionLocalOf { KEYBOARD_THEMES.first() }
 
 // ---------------------------------------------------------------------------
 // 亲密度 & 人设 -> 回复生成（本地 Mock，后续由真 AI 接口替换）

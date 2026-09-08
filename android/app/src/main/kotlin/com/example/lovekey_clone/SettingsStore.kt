@@ -28,6 +28,7 @@ object SettingsStore {
     private const val KEY_SOUND = "key_sound"
     private const val KEY_ASCII_MODE = "ascii_mode"
     private const val KEY_CLIPBOARD = "clipboard_history"
+    private const val KEY_THEME = "keyboard_theme"
 
     const val DEFAULT_INTIMACY = 50
     const val DEFAULT_PERSONA = "通用"
@@ -204,6 +205,19 @@ object SettingsStore {
 
     fun setKeySoundEnabled(context: Context, enabled: Boolean) {
         getPrefs(context).edit().putBoolean(KEY_SOUND, enabled).apply()
+    }
+
+    // ------------------------------------------------------------------
+    // 键盘主题（外观皮肤，IME 与 Flutter 共享）
+    // ------------------------------------------------------------------
+
+    const val DEFAULT_THEME = "经典蓝"
+
+    fun getThemeName(context: Context): String =
+        getPrefs(context).getString(KEY_THEME, DEFAULT_THEME) ?: DEFAULT_THEME
+
+    fun setThemeName(context: Context, name: String) {
+        getPrefs(context).edit().putString(KEY_THEME, name.ifBlank { DEFAULT_THEME }).apply()
     }
 
     // ------------------------------------------------------------------

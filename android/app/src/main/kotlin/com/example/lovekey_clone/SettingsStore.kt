@@ -25,7 +25,9 @@ object SettingsStore {
     private const val KEY_BALL_X = "floatball_x"
     private const val KEY_BALL_Y = "floatball_y"
     private const val KEY_HAPTIC = "haptic_feedback"
+    private const val KEY_SOUND = "key_sound"
     private const val KEY_ASCII_MODE = "ascii_mode"
+    private const val KEY_CLIPBOARD = "clipboard_history"
 
     const val DEFAULT_INTIMACY = 50
     const val DEFAULT_PERSONA = "通用"
@@ -191,6 +193,57 @@ object SettingsStore {
 
     fun setHapticEnabled(context: Context, enabled: Boolean) {
         getPrefs(context).edit().putBoolean(KEY_HAPTIC, enabled).apply()
+    }
+
+    // ------------------------------------------------------------------
+    // 键盘按键音效开关
+    // ------------------------------------------------------------------
+
+    fun getKeySoundEnabled(context: Context): Boolean =
+        getPrefs(context).getBoolean(KEY_SOUND, true)
+
+    fun setKeySoundEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_SOUND, enabled).apply()
+    }
+
+    // ------------------------------------------------------------------
+    // 剪贴板历史（上屏内容自动收录，供快捷插入）
+    // ------------------------------------------------------------------
+
+    private const val MAX_CLIPBOARD_ITEMS = 10
+
+    /** 读取剪贴板历史（最新在前）；解析失败时自愈回空列表 */
+    fun getClipboardItems(context: Context): List<String> {
+        val raw = getPrefs(context).getString(KEY_CLIPBOARD, "[]") ?: "[]"
+        return runCatching {
+            val arr = JSONArray(raw)
+            (0 until arr.length()).mapNotNull { i -> arr.optString(i).takeIf { it.isNotBlank() } }
+        }.getOrDefault(emptyList())
+    }
+
+    /** 追加一条剪贴板历史：去重（已存在则移到最前），最多保留 MAX_CLIPBOARD_ITEMS 条 */
+    fun addClipboardItem(context: Context, text: String) {
+        val trimmed = text.trim().ifBlank { return }
+        val list = getClipboardItems(context).toMutableList()
+        list.remove(trimmed)
+        list.add(0, trimmed)
+        while (list.size > MAX_CLIPBOARD_ITEMS) list.removeAt(list.size - 1)
+        persistClipboard(context, list)
+    }
+
+    fun deleteClipboardItem(context: Context, text: String) {
+        val list = getClipboardItems(context).filter { it != text }
+        persistClipboard(context, list)
+    }
+
+    fun clearClipboard(context: Context) {
+        getPrefs(context).edit().remove(KEY_CLIPBOARD).apply()
+    }
+
+    private fun persistClipboard(context: Context, list: List<String>) {
+        val arr = JSONArray()
+        list.forEach { arr.put(it) }
+        getPrefs(context).edit().putString(KEY_CLIPBOARD, arr.toString()).apply()
     }
 
     // ------------------------------------------------------------------

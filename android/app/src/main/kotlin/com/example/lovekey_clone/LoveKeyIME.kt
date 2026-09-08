@@ -19,6 +19,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -217,10 +218,14 @@ class LoveKeyIME : InputMethodService() {
         if (Rime.pageDown()) refreshCandidatesAfterPage()
     }
 
-    /** 按键 / 候选等操作的触觉反馈，跟随设置开关 */
+    /** 按键 / 候选等操作的反馈：触觉震动 + 按键音，均跟随设置开关 */
     private fun hapticTick() {
-        if (!SettingsStore.getHapticEnabled(this)) return
         val view = currentInputView ?: return
+        if (SettingsStore.getKeySoundEnabled(this)) {
+            // 按键音（系统 Click 音效，音量跟随系统设置）
+            runCatching { view.playSoundEffect(android.view.SoundEffectConstants.CLICK) }
+        }
+        if (!SettingsStore.getHapticEnabled(this)) return
         val feedback = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             HapticFeedbackConstants.KEYBOARD_TAP
         } else {
@@ -234,12 +239,13 @@ class LoveKeyIME : InputMethodService() {
         currentComposingText.value = Rime.compositionText
     }
 
-    /** 候选上屏后尝试取联想词（引擎/词典不支持时返回空，静默隐藏该行） */
+    /** 候选上屏后：取联想词，并把上屏内容收录进剪贴板历史（供快捷插入） */
     private fun afterCommit(committedText: String) {
         if (committedText.isEmpty()) {
             associateCandidates.value = emptyList()
             return
         }
+        SettingsStore.addClipboardItem(this, committedText)
         val associates = runCatching { Rime.getAssociateList(committedText.takeLast(1)) }
             .getOrNull()?.filterNotNull()?.filter { it.isNotBlank() } ?: emptyList()
         associateCandidates.value = associates
@@ -448,6 +454,19 @@ fun LoveKeyKeyboardUI(
     var showCustomPhraseInput by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
+    // 剪贴板面板：系统剪贴板当前内容 + 历史（打开时刷新）
+    val clipboardManager = remember {
+        context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    }
+    var clipboardItems by remember { mutableStateOf<List<String>>(emptyList()) }
+    fun refreshClipboard() {
+        val sysClip = clipboardManager.primaryClip
+            ?.takeIf { it.itemCount > 0 }
+            ?.getItemAt(0)?.text?.toString()
+        clipboardItems = (listOfNotNull(sysClip?.takeIf { it.isNotBlank() }) + SettingsStore.getClipboardItems(context))
+            .distinct()
+            .take(12)
+    }
 
     // VIP and Usage logic
     var isVip by remember { mutableStateOf(false) }
@@ -467,11 +486,15 @@ fun LoveKeyKeyboardUI(
 
     val coroutineScope = rememberCoroutineScope()
 
-    // 键盘特殊键转发：@# / 123 / 表情键 在 UI 层拦截，切换到对应面板，不进入 IME 引擎
+    // 键盘特殊键转发：@# / 123 / 表情 / 剪贴板键在 UI 层拦截，切换到对应面板，不进入 IME 引擎
     val innerOnKeyPress: (String) -> Unit = { key ->
         when (key) {
             "emoji" -> activeTab = "emoji"
             "@#", "123" -> activeTab = "symbols"
+            "clipboard" -> {
+                refreshClipboard()
+                activeTab = "clipboard"
+            }
             else -> onKeyPress(key)
         }
     }
@@ -1285,6 +1308,20 @@ fun LoveKeyKeyboardUI(
                 onKeyPress = { innerOnKeyPress(it) },
                 onClose = { activeTab = "keyboard" }
             )
+        } else if (activeTab == "clipboard") {
+            ClipboardPanel(
+                items = clipboardItems,
+                onKeyPress = { innerOnKeyPress(it) },
+                onDelete = { text ->
+                    SettingsStore.deleteClipboardItem(context, text)
+                    refreshClipboard()
+                },
+                onClear = {
+                    SettingsStore.clearClipboard(context)
+                    refreshClipboard()
+                },
+                onClose = { activeTab = "keyboard" }
+            )
         } else {
             // T9 Keyboard Mode
             T9KeyboardGrid(
@@ -1420,11 +1457,11 @@ fun T9KeyboardGrid(
                 }
                 // Row 4 left
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth().height(48.dp)) {
-                    KeyButton(text = "!", modifier = Modifier.weight(1f), bgColor = Color(0xFFB0B3BE), onClick = { onKeyPress("!") })
-                    KeyButton(text = "123", modifier = Modifier.weight(1.5f), onClick = { onKeyPress("123") })
-                    KeyButton(text = "😊", modifier = Modifier.weight(1.5f), onClick = { onKeyPress("emoji") })
-                    KeyButton(text = "␣", modifier = Modifier.weight(3f), onClick = { onKeyPress(" ") }) // Spacebar spans 2 columns
-                    KeyButton(text = if (asciiMode) "EN" else "中/英", modifier = Modifier.weight(1.5f), onClick = onToggleAscii)
+                    KeyButton(text = "123", modifier = Modifier.weight(1.2f), onClick = { onKeyPress("123") })
+                    KeyButton(text = "😊", modifier = Modifier.weight(1.2f), onClick = { onKeyPress("emoji") })
+                    KeyButton(text = "📋", modifier = Modifier.weight(1.2f), onClick = { onKeyPress("clipboard") })
+                    KeyButton(text = "␣", modifier = Modifier.weight(2.6f), onClick = { onKeyPress(" ") }) // Spacebar spans 2 columns
+                    KeyButton(text = if (asciiMode) "EN" else "中/英", modifier = Modifier.weight(1.2f), onClick = onToggleAscii)
                 }
             }
 
@@ -1708,6 +1745,121 @@ private fun SymbolPanel(
             shape = RoundedCornerShape(22.dp)
         ) {
             Text("完成", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun ClipboardPanel(
+    items: List<String>,
+    onKeyPress: (String) -> Unit,
+    onDelete: (String) -> Unit,
+    onClear: () -> Unit,
+    onClose: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            .background(Color(0xFFF4F6FE))
+            .height(320.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "剪贴板",
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 18.sp,
+                color = Color(0xFF2B2F35)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "最近上屏内容自动收录",
+                color = Color(0xFF9AA0AC),
+                fontSize = 11.sp
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            if (items.isNotEmpty()) {
+                Text(
+                    text = "清空",
+                    color = Color(0xFFE05A86),
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .clickable { onClear() }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Close",
+                tint = Color(0xFF888888),
+                modifier = Modifier
+                    .size(20.dp)
+                    .clickable { onClose() }
+            )
+        }
+
+        if (items.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("📋", fontSize = 36.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "暂无内容，上屏的文字会自动收录到这里",
+                        color = Color(0xFF9AA0AC),
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                itemsIndexed(items) { index, text ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color.White, RoundedCornerShape(10.dp))
+                            .clickable {
+                                onKeyPress(text)
+                                onClose()
+                            }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (index == 0) "当前剪贴板" else "历史 $index",
+                                color = Color(0xFF9AA0AC),
+                                fontSize = 10.sp
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = text,
+                                color = Color(0xFF2B2F35),
+                                fontSize = 14.sp,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "删除",
+                            tint = Color(0xFFC9CDD8),
+                            modifier = Modifier
+                                .size(18.dp)
+                                .clickable { onDelete(text) }
+                        )
+                    }
+                }
+            }
         }
     }
 }

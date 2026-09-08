@@ -30,4 +30,13 @@ class FloatBallService {
       return false;
     }
   }
+
+  /// 是否已授予悬浮窗权限
+  Future<bool> hasOverlayPermission() async {
+    try {
+      return await _channel.invokeMethod<bool>('hasOverlayPermission') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
 }

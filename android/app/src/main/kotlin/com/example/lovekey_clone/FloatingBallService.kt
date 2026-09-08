@@ -1,5 +1,6 @@
 package com.example.lovekey_clone
 
+import android.animation.ValueAnimator
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -18,7 +19,9 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.WindowManager
+import android.view.animation.DecelerateInterpolator
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -27,10 +30,18 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * 全局悬浮球：可拖拽；点击后通过透明的输入代理页唤起软键盘（LoveKey IME）。
+ *
+ * 增强点：
+ *  - 拖拽节流：仅当坐标真实变化时才更新布局，降低性能开销
+ *  - 触摸反馈：按下缩小、松手回弹，拖拽/点击手感更明确
+ *  - 平滑吸附：松手后用动画吸附到屏幕边缘，而不是瞬移
+ *  - 位置持久化：拖拽后的位置写入 SharedPreferences，重启后恢复
+ *  - 越界保护：屏幕旋转 / 分辨率变化后自动把球夹回屏幕内
  */
 class FloatingBallService : Service() {
 
     private lateinit var windowManager: WindowManager
+
     private var ballView: View? = null
     private var ballParams: WindowManager.LayoutParams? = null
 
@@ -38,6 +49,12 @@ class FloatingBallService : Service() {
     private var initialY = 0
     private var initialTouchX = 0f
     private var initialTouchY = 0f
+    private var isDragging = false
+    private var isAnimating = false
+
+    /** 上一次更新过的位置，用于节流 */
+    private var lastUpdatedX = Int.MIN_VALUE
+    private var lastUpdatedY = Int.MIN_VALUE
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -61,11 +78,16 @@ class FloatingBallService : Service() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         // 屏幕方向变化时，把球吸附回屏幕内
-        ballView?.let { snapToEdge(it) }
+        ballView?.let {
+            val params = ballParams ?: return
+            clampToScreen(params)
+            windowManager.updateViewLayout(it, params)
+        }
     }
 
     override fun onDestroy() {
-        ballView?.let { windowManager.removeView(it) }
+        isAnimating = false
+        ballView?.let { runCatching { windowManager.removeView(it) } }
         ballView = null
         isRunning.set(false)
         super.onDestroy()
@@ -154,8 +176,15 @@ class FloatingBallService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = resources.displayMetrics.widthPixels - size - dp(16)
-            y = resources.displayMetrics.heightPixels / 3
+            val saved = SettingsStore.getBallPosition(this@FloatingBallService)
+            if (saved.first >= 0 && saved.second >= 0) {
+                x = saved.first
+                y = saved.second
+            } else {
+                x = resources.displayMetrics.widthPixels - size - dp(16)
+                y = resources.displayMetrics.heightPixels / 3
+            }
+            clampToScreen(this)
         }
 
         ball.setOnTouchListener { _, event ->
@@ -175,33 +204,90 @@ class FloatingBallService : Service() {
                 initialY = params.y
                 initialTouchX = event.rawX
                 initialTouchY = event.rawY
+                isDragging = false
+                // 触摸反馈：轻微缩小
+                ball.animate().scaleX(0.86f).scaleY(0.86f).setDuration(80L).start()
             }
             MotionEvent.ACTION_MOVE -> {
-                params.x = initialX + (event.rawX - initialTouchX).toInt()
-                params.y = initialY + (event.rawY - initialTouchY).toInt()
-                windowManager.updateViewLayout(ball, params)
+                val newX = initialX + (event.rawX - initialTouchX).toInt()
+                val newY = initialY + (event.rawY - initialTouchY).toInt()
+                // 超过触摸阈值才视为拖拽（避免与点击冲突）
+                if (!isDragging && isBeyondTouchSlop(event)) {
+                    isDragging = true
+                }
+                if (isDragging) {
+                    params.x = newX
+                    params.y = newY
+                    // 节流：坐标未变化时跳过布局更新
+                    if (params.x != lastUpdatedX || params.y != lastUpdatedY) {
+                        lastUpdatedX = params.x
+                        lastUpdatedY = params.y
+                        windowManager.updateViewLayout(ball, params)
+                    }
+                }
             }
             MotionEvent.ACTION_UP -> {
-                val moved = kotlin.math.abs(event.rawX - initialTouchX) +
-                    kotlin.math.abs(event.rawY - initialTouchY)
-                if (moved < dp(12).toFloat()) {
-                    // 点击：唤起键盘
+                ball.animate().scaleX(1f).scaleY(1f).setDuration(100L).start()
+                if (!isDragging) {
+                    // 点击：唤起键盘（位置不变）
                     openKeyboard()
                 } else {
                     snapToEdge(ball)
                 }
+                isDragging = false
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                ball.animate().scaleX(1f).scaleY(1f).setDuration(100L).start()
+                isDragging = false
             }
         }
         return false
     }
 
+    private fun isBeyondTouchSlop(event: MotionEvent): Boolean {
+        val slop = ViewConfiguration.get(this).scaledTouchSlop
+        return kotlin.math.abs(event.rawX - initialTouchX) > slop ||
+            kotlin.math.abs(event.rawY - initialTouchY) > slop
+    }
+
+    /** 吸附到最近的屏幕边缘（带动画），并持久化位置 */
     private fun snapToEdge(ball: View) {
         val params = ballParams ?: return
         val screenWidth = resources.displayMetrics.widthPixels
         val size = dp(56)
         val center = params.x + size / 2f
-        params.x = if (center < screenWidth / 2f) dp(8) else screenWidth - size - dp(8)
-        windowManager.updateViewLayout(ball, params)
+        val targetX = if (center < screenWidth / 2f) dp(8) else screenWidth - size - dp(8)
+        val startX = params.x
+
+        isAnimating = true
+        ValueAnimator.ofInt(startX, targetX).apply {
+            duration = 220L
+            interpolator = DecelerateInterpolator()
+            addUpdateListener { anim ->
+                if (isAnimating && ballView != null) {
+                    val p = ballParams ?: return@addUpdateListener
+                    p.x = anim.animatedValue as Int
+                    clampToScreen(p)
+                    windowManager.updateViewLayout(ball, p)
+                }
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    isAnimating = false
+                    ballParams?.let { SettingsStore.setBallPosition(this@FloatingBallService, it.x, it.y) }
+                }
+            })
+            start()
+        }
+    }
+
+    /** 把坐标夹回屏幕可视范围（考虑状态栏/导航栏留白） */
+    private fun clampToScreen(params: WindowManager.LayoutParams) {
+        val dm = resources.displayMetrics
+        val size = dp(56)
+        val margin = dp(8)
+        params.x = params.x.coerceIn(margin, dm.widthPixels - size - margin)
+        params.y = params.y.coerceIn(margin, dm.heightPixels - size - margin)
     }
 
     /** 通过透明的输入代理页请求软键盘（当前 IME 为 LoveKey 时直接唤起） */

@@ -2,6 +2,7 @@ package com.example.lovekey_clone
 
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.SharedPreferences
 import android.inputmethodservice.InputMethodService
 import android.view.View
 import android.view.ViewGroup
@@ -72,6 +73,9 @@ class LoveKeyIME : InputMethodService() {
     private val intimacyLevel = mutableStateOf(50)
     private val personaName = mutableStateOf("通用")
 
+    /** 设置变更监听注销句柄，避免泄漏 */
+    private var settingsListenerUnregister: Runnable? = null
+
     override fun onCreate() {
         super.onCreate()
         lifecycleOwner = IMELifecycleOwner()
@@ -88,6 +92,17 @@ class LoveKeyIME : InputMethodService() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+
+        // 3. 实时同步 Flutter 侧设置：亲密度 / 人设变化即时生效，无需等键盘重开
+        settingsListenerUnregister = SettingsStore.registerChangeListener(
+            this,
+            SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                when (key) {
+                    "intimacy_level" -> intimacyLevel.value = SettingsStore.getIntimacy(this)
+                    "selected_persona" -> personaName.value = SettingsStore.getPersona(this)
+                }
+            }
+        )
     }
 
     override fun onUpdateSelection(
@@ -232,6 +247,8 @@ class LoveKeyIME : InputMethodService() {
     }
 
     override fun onDestroy() {
+        settingsListenerUnregister?.run()
+        settingsListenerUnregister = null
         lifecycleOwner.onDestroy()
         super.onDestroy()
     }

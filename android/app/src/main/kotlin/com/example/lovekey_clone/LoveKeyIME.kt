@@ -19,6 +19,9 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
@@ -153,6 +156,11 @@ class LoveKeyIME : InputMethodService() {
         hapticTick()
         if (!rimeReady.get()) {
             synchronized(pendingKeys) { pendingKeys.add(key) }
+            return
+        }
+        // 多字符文本（颜文字 / 表情等）直接上屏，避免首字符被引擎拆进拼音态
+        if (key.length > 1) {
+            currentInputConnection?.commitText(key, 1)
             return
         }
         // 西文模式：按键直接上屏，不走引擎
@@ -429,7 +437,7 @@ fun LoveKeyKeyboardUI(
     onCommitAssociate: (String) -> Unit
 ) {
     var isGenerating by remember { mutableStateOf(false) }
-    var activeTab by remember { mutableStateOf("keyboard") } // keyboard, ai_reply, quick_reply, custom_prompt, refine_draft
+    var activeTab by remember { mutableStateOf("keyboard") } // keyboard, ai_reply, quick_reply, custom_prompt, refine_draft, emoji, symbols
     var customPromptText by remember { mutableStateOf("") }
     var copiedText by remember { mutableStateOf("") }
 
@@ -458,6 +466,15 @@ fun LoveKeyKeyboardUI(
     }
 
     val coroutineScope = rememberCoroutineScope()
+
+    // 键盘特殊键转发：@# / 123 / 表情键 在 UI 层拦截，切换到对应面板，不进入 IME 引擎
+    val innerOnKeyPress: (String) -> Unit = { key ->
+        when (key) {
+            "emoji" -> activeTab = "emoji"
+            "@#", "123" -> activeTab = "symbols"
+            else -> onKeyPress(key)
+        }
+    }
 
     // Intimacy-aware reply pool (recomputed when intimacy / persona changes)
     val aiReplies = remember(intimacy, personaName) { buildReplies(intimacy, personaName) }
@@ -1258,12 +1275,22 @@ fun LoveKeyKeyboardUI(
                     }
                 }
             }
+        } else if (activeTab == "emoji") {
+            EmojiPanel(
+                onKeyPress = { innerOnKeyPress(it) },
+                onClose = { activeTab = "keyboard" }
+            )
+        } else if (activeTab == "symbols") {
+            SymbolPanel(
+                onKeyPress = { innerOnKeyPress(it) },
+                onClose = { activeTab = "keyboard" }
+            )
         } else {
             // T9 Keyboard Mode
             T9KeyboardGrid(
                 asciiMode = asciiMode,
                 onToggleAscii = onToggleAscii,
-                onKeyPress = onKeyPress,
+                onKeyPress = innerOnKeyPress,
                 onDelete = onDelete,
                 onPerformAction = onPerformAction
             )
@@ -1395,6 +1422,7 @@ fun T9KeyboardGrid(
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth().height(48.dp)) {
                     KeyButton(text = "!", modifier = Modifier.weight(1f), bgColor = Color(0xFFB0B3BE), onClick = { onKeyPress("!") })
                     KeyButton(text = "123", modifier = Modifier.weight(1.5f), onClick = { onKeyPress("123") })
+                    KeyButton(text = "😊", modifier = Modifier.weight(1.5f), onClick = { onKeyPress("emoji") })
                     KeyButton(text = "␣", modifier = Modifier.weight(3f), onClick = { onKeyPress(" ") }) // Spacebar spans 2 columns
                     KeyButton(text = if (asciiMode) "EN" else "中/英", modifier = Modifier.weight(1.5f), onClick = onToggleAscii)
                 }
@@ -1432,6 +1460,255 @@ fun KeyButton(
             fontSize = if (text.length > 3) 14.sp else 16.sp,
             textAlign = TextAlign.Center
         )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 表情 / 颜文字面板 & 符号面板
+// ---------------------------------------------------------------------------
+
+/** 恋爱场景常用 Emoji */
+private val LOVE_EMOJIS = listOf(
+    "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍",
+    "💖", "💘", "💝", "💞", "💕", "💗", "💓", "💋",
+    "😘", "😍", "🥰", "😊", "😉", "😜", "🤪", "😏",
+    "😳", "🥺", "😢", "😭", "🤗", "😎", "🥳", "😴",
+    "🙈", "🙉", "🙊", "👀", "🔥", "✨", "⭐", "🌹",
+    "🌙", "🎁", "💍", "🌸", "💫", "🍓", "🧸", "🌈"
+)
+
+/** 恋爱场景常用颜文字 */
+private val LOVE_KAOMOJI = listOf(
+    "(≧▽≦)", "(●'◡'●)", "(◕‿◕)", "(*≧ω≦)",
+    "(´▽`)", "(๑˃ᴗ˂)ﻭ", "ヾ(≧▽≦*)o", "(*´∀`*)",
+    "( ˘ ³˘)♥", "♡(ŐωŐ人)", "(づ￣3￣)づ", "｡ﾟ(ﾟ´ω`ﾟ)ﾟ｡",
+    "(^・ω・^ )", "(｡♥‿♥｡)", "✧(≖ ◡ ≖✿)", "₍₍◝(・ω・)◟₎₎",
+    "(๑•̀ㅂ•́)و✧", "٩(๑❛ᴗ❛๑)۶", "(づ｡◕‿‿◕｡)づ", "♡(∩o∩)♡"
+)
+
+/** 符号面板内容：每 4 行为一页（常用标点 / 数字运算 / 特殊符号） */
+private val SYMBOL_PAGES = listOf(
+    listOf(",", "。", "、", "；", "：", "？", "！", "…"),
+    listOf("“", "”", "‘", "’", "（", "）", "【", "】"),
+    listOf("《", "》", "—", "·", "～", "@", "#", "&"),
+    listOf("0", "1", "2", "3", "4", "5", "6", "7"),
+    listOf("8", "9", "+", "-", "×", "÷", "=", "%"),
+    listOf("$", "€", "£", "¥", "^", "*", "_", "|"),
+    listOf("\\", "/", "~", "`", "<", ">", "[", "]"),
+    listOf("{", "}", "(", ")", "☆", "★", "☀", "☾")
+)
+
+@Composable
+private fun EmojiPanel(
+    onKeyPress: (String) -> Unit,
+    onClose: () -> Unit
+) {
+    var emojiTab by rememberSaveable { mutableStateOf(0) } // 0=表情 1=颜文字
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            .background(Color(0xFFF4F6FE))
+            .height(320.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (emojiTab == 0) "表情" else "颜文字",
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 18.sp,
+                color = Color(0xFF2B2F35)
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            // 表情 / 颜文字 tab
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.White, RoundedCornerShape(14.dp))
+                    .border(1.dp, Color(0xFFDFE2EC), RoundedCornerShape(14.dp)),
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                listOf("表情", "颜文字").forEachIndexed { index, label ->
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (emojiTab == index) Color(0xFF586AFE) else Color.Transparent,
+                                RoundedCornerShape(12.dp)
+                            )
+                            .clickable { emojiTab = index }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (emojiTab == index) Color.White else Color(0xFF585C62),
+                            fontSize = 12.sp,
+                            fontWeight = if (emojiTab == index) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Close",
+                tint = Color(0xFF888888),
+                modifier = Modifier
+                    .size(20.dp)
+                    .clickable { onClose() }
+            )
+        }
+
+        if (emojiTab == 0) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(8),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(LOVE_EMOJIS) { emoji ->
+                    Text(
+                        text = emoji,
+                        fontSize = 24.sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.White, RoundedCornerShape(8.dp))
+                            .clickable {
+                                onKeyPress(emoji)
+                                onClose()
+                            }
+                            .padding(top = 6.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(LOVE_KAOMOJI) { kaomoji ->
+                    Text(
+                        text = kaomoji,
+                        color = Color(0xFF2B2F35),
+                        fontSize = 18.sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color.White, RoundedCornerShape(10.dp))
+                            .clickable {
+                                onKeyPress(kaomoji)
+                                onClose()
+                            }
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SymbolPanel(
+    onKeyPress: (String) -> Unit,
+    onClose: () -> Unit
+) {
+    val totalPages = (SYMBOL_PAGES.size + 3) / 4
+    var symbolPage by rememberSaveable { mutableStateOf(0) }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            .background(Color(0xFFF4F6FE))
+            .height(320.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "符号",
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 18.sp,
+                color = Color(0xFF2B2F35)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            // 页码指示
+            repeat(totalPages) { index ->
+                Box(
+                    modifier = Modifier
+                        .size(if (index == symbolPage) 18.dp else 8.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (index == symbolPage) Color(0xFF586AFE) else Color(0xFFC9CDD8)
+                        )
+                        .clickable { symbolPage = index }
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Close",
+                tint = Color(0xFF888888),
+                modifier = Modifier
+                    .size(20.dp)
+                    .clickable { onClose() }
+            )
+        }
+
+        val start = symbolPage * 4
+        val end = (start + 4).coerceAtMost(SYMBOL_PAGES.size)
+        for (rowIndex in start until end) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 5.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                SYMBOL_PAGES[rowIndex].forEach { symbol ->
+                    Text(
+                        text = symbol,
+                        color = Color(0xFF2B2F35),
+                        fontSize = 18.sp,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.White, RoundedCornerShape(8.dp))
+                            .clickable {
+                                onKeyPress(symbol)
+                            }
+                            .padding(top = 8.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+        Button(
+            onClick = onClose,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .height(44.dp),
+            colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF586AFE)),
+            shape = RoundedCornerShape(22.dp)
+        ) {
+            Text("完成", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        }
     }
 }
 

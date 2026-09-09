@@ -14,6 +14,12 @@ class MainActivity : FlutterActivity() {
     private var settingsSink: EventChannel.EventSink? = null
     private var changeListenerUnregister: Runnable? = null
 
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
+        // 全局未捕获异常兜底（与 IME 共存时幂等）
+        CrashHandler.install(applicationContext)
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         setupSettingsChannel(flutterEngine)

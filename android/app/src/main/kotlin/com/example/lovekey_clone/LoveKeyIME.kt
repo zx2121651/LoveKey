@@ -106,6 +106,8 @@ class LoveKeyIME : InputMethodService() {
 
     override fun onCreate() {
         super.onCreate()
+        // 全局未捕获异常兜底：崩溃写 logcat + 落盘，不掩盖系统崩溃语义（幂等）
+        CrashHandler.install(applicationContext)
         lifecycleOwner = IMELifecycleOwner()
         lifecycleOwner.onCreate()
 

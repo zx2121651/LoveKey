@@ -17,6 +17,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.provider.Settings
+import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
@@ -79,12 +80,17 @@ class FloatingBallService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
+            Log.i(TAG, "onStartCommand ACTION_STOP, stopping")
             stopSelf()
             return START_NOT_STICKY
         }
         startAsForeground()
+        // 幂等：进程被杀后 START_STICKY 会带 null/空 intent 重启，球已存在则不再重复添加
         if (ballView == null && Settings.canDrawOverlays(this)) {
+            Log.i(TAG, "addBall (overlay granted)")
             addBall()
+        } else if (ballView == null) {
+            Log.w(TAG, "overlay permission not granted, skip addBall")
         }
         return START_STICKY
     }
@@ -438,6 +444,7 @@ class FloatingBallService : Service() {
         private const val CHANNEL_ID = "lovekey_floatball"
         private const val NOTIFICATION_ID = 1001
         private const val LONG_PRESS_MS = 500L
+        private const val TAG = "LoveKeyFloatBall"
 
         val isRunning = AtomicBoolean(false)
 

@@ -7,9 +7,11 @@ import android.inputmethodservice.InputMethodService
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
 import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
 import android.widget.FrameLayout
 import java.util.concurrent.atomic.AtomicBoolean
 import androidx.compose.foundation.background
@@ -74,6 +76,12 @@ import java.io.File
 
 class LoveKeyIME : InputMethodService() {
 
+    /** Rime 启动最大尝试次数 / 重试间隔（毫秒） */
+    private companion object {
+        const val MAX_RIME_START_ATTEMPTS = 2
+        const val RIME_RETRY_DELAY_MS = 500L
+    }
+
     private lateinit var lifecycleOwner: IMELifecycleOwner
 
     // Mutable state to hold the text before the cursor
@@ -90,6 +98,27 @@ class LoveKeyIME : InputMethodService() {
     /** 设置变更监听注销句柄，避免泄漏 */
     private var settingsListenerUnregister: Runnable? = null
 
+    /**
+     * 带重试的引擎启动：首次启动可能因词库文件仍被占用 / native 初始化未完成而失败，
+     * 短暂休眠后最多重试 MAX_RIME_START_ATTEMPTS 次；最终失败也不再抛异常，
+     * 由 onRimeReady 进入降级（rimeSafe 全程兜底）。
+     */
+    private fun startRimeWithRetry() {
+        var attempt = 0
+        var started = false
+        while (attempt < MAX_RIME_START_ATTEMPTS && !started) {
+            attempt++
+            started = runCatching { Rime.startup(this, false) }.isSuccess
+            if (!started && attempt < MAX_RIME_START_ATTEMPTS) {
+                try {
+                    Thread.sleep(RIME_RETRY_DELAY_MS)
+                } catch (_: InterruptedException) {
+                    return
+                }
+            }
+        }
+    }
+
     /** Rime 引擎是否就绪（异步初始化） */
     private val rimeReady = AtomicBoolean(false)
 
@@ -103,6 +132,12 @@ class LoveKeyIME : InputMethodService() {
 
     /** 上屏后的联想词（引擎支持时非空） */
     private val associateCandidates = mutableStateOf<List<String>>(emptyList())
+
+    /**
+     * 敏感 / 非文本输入感知：密码、邮箱、URL、数字等字段禁用拼音候选，
+     * 防止明文泄漏到候选栏、避免错误格式，同时直接系统上屏保证输入即所得。
+     */
+    private val isSensitiveInput = mutableStateOf(false)
 
     override fun onCreate() {
         super.onCreate()
@@ -119,9 +154,10 @@ class LoveKeyIME : InputMethodService() {
         // 2. Initialize YuyanIme Engine (Sogou Wrapper)
         //    后台线程初始化，避免词库加载阻塞主线程、卡住首弹键盘；
         //    就绪前输入的按键先缓冲，就绪后回放。
+        //    启动失败自动重试，仍未成功则整体降级为系统输入（rimeSafe 兜底所有引擎调用）。
         rimeReady.set(false)
         Thread {
-            runCatching { Rime.startup(this, false) }
+            startRimeWithRetry()
             rimeReady.set(true)
             mainHandler.post { onRimeReady() }
         }.start()
@@ -165,6 +201,11 @@ class LoveKeyIME : InputMethodService() {
 
     private fun handleKeyPress(key: String) {
         hapticTick()
+        // 敏感 / 非文本输入：不走引擎，直接系统上屏（避免密码进拼音态泄漏明文）
+        if (isSensitiveInput.value) {
+            currentInputConnection?.commitText(key, 1)
+            return
+        }
         if (!rimeReady.get()) {
             synchronized(pendingKeys) { pendingKeys.add(key) }
             return
@@ -276,6 +317,34 @@ class LoveKeyIME : InputMethodService() {
         // Extract up to 100 characters before the cursor as the draft
         val textBefore = currentInputConnection?.getTextBeforeCursor(100, 0)?.toString() ?: ""
         currentDraftText.value = textBefore
+    }
+
+    override fun onStartInput(editorInfo: EditorInfo?, restarting: Boolean) {
+        super.onStartInput(editorInfo, restarting)
+        val inputType = editorInfo?.inputType ?: 0
+        val cls = inputType and InputType.TYPE_MASK_CLASS
+        val variation = inputType and InputType.TYPE_MASK_VARIATION
+
+        // 密码 / 邮箱 / URL / 号码等字段：禁用拼音候选与联想，直接系统上屏
+        val sensitive = cls == InputType.TYPE_CLASS_TEXT &&
+            (variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
+                variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD ||
+                variation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS ||
+                variation == InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS ||
+                variation == InputType.TYPE_TEXT_VARIATION_URI ||
+                variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD) ||
+            cls == InputType.TYPE_CLASS_NUMBER ||
+            cls == InputType.TYPE_CLASS_PHONE ||
+            cls == InputType.TYPE_CLASS_DATETIME
+
+        isSensitiveInput.value = sensitive
+        if (sensitive) {
+            // 进入敏感字段：清空拼音态与候选，防止上一字段的明文残留
+            currentComposingText.value = ""
+            currentCandidates.value = emptyList()
+            associateCandidates.value = emptyList()
+            rimeSafe(Unit) { Rime.clearComposition() }
+        }
     }
 
     override fun onCreateInputView(): View {
@@ -414,7 +483,13 @@ class LoveKeyIME : InputMethodService() {
                                 currentComposingText.value = ""
                                 currentCandidates.value = emptyList()
                             }
-                            currentInputConnection?.performEditorAction(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH)
+                            // 跟随目标字段的实际动作（搜索/前往/发送/下一步/完成），未指定时回落为"完成"
+                            val options = getCurrentInputEditorInfo()?.imeOptions ?: EditorInfo.IME_ACTION_NONE
+                            var actionId = options and EditorInfo.IME_MASK_ACTION
+                            if (actionId == EditorInfo.IME_ACTION_UNSPECIFIED) {
+                                actionId = EditorInfo.IME_ACTION_DONE
+                            }
+                            currentInputConnection?.performEditorAction(actionId)
                         }
                     )
                 }

@@ -74,4 +74,17 @@ object CrashHandler {
 
     private fun timestamp(): String =
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(Date())
+
+    /** 读取崩溃日志全文（供 Flutter 侧展示 / 上报；无日志返回 null） */
+    fun readLogs(context: Context): String? =
+        runCatching {
+            File(File(context.filesDir, CRASH_DIR), CRASH_LOG)
+                .takeIf { it.exists() }
+                ?.readText()
+        }.getOrNull()
+
+    /** 清空崩溃日志（上报成功后调用） */
+    fun clearLogs(context: Context) {
+        runCatching { File(File(context.filesDir, CRASH_DIR), CRASH_LOG).delete() }
+    }
 }

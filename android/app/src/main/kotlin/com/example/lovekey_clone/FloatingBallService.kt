@@ -31,6 +31,7 @@ import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import androidx.compose.ui.graphics.toArgb
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -182,7 +183,7 @@ class FloatingBallService : Service() {
             val size = dp(56)
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(0xFF586AFE.toInt())
+                setColor(themeAccentArgb())
             }
             background = bg
             elevation = dp(8).toFloat()
@@ -316,6 +317,13 @@ class FloatingBallService : Service() {
         val margin = dp(8)
         params.x = params.x.coerceIn(margin, dm.widthPixels - size - margin)
         params.y = params.y.coerceIn(margin, dm.heightPixels - size - margin)
+    }
+
+    /** 悬浮球主色跟随键盘主题（与 LoveKeyIME 的 KEYBOARD_THEMES 联动） */
+    private fun themeAccentArgb(): Int {
+        val name = SettingsStore.getThemeName(this)
+        val theme = KEYBOARD_THEMES.firstOrNull { it.name == name } ?: KEYBOARD_THEMES.first()
+        return theme.accent.toArgb()
     }
 
     /** 通过透明的输入代理页请求软键盘（当前 IME 为 LoveKey 时直接唤起） */

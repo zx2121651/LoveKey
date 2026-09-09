@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
+import androidx.activity.OnBackPressedCallback
 
 /**
  * 透明的输入代理页：持有隐藏输入框并请求软键盘。
@@ -23,19 +24,24 @@ class KeyboardInvokerActivity : Activity() {
             FrameLayout.LayoutParams(1, 1)
         )
         hiddenInput.requestFocus()
+
+        // 系统返回键：收起软键盘并结束本页（兼容 API 33+ 预测性返回手势）
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.hideSoftInputFromWindow(hiddenInput.windowToken, 0)
+                    finish()
+                }
+            }
+        )
     }
 
     override fun onResume() {
         super.onResume()
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.showSoftInput(hiddenInput, InputMethodManager.SHOW_IMPLICIT)
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.hideSoftInputFromWindow(hiddenInput.windowToken, 0)
-        super.onBackPressed()
     }
 
     override fun onPause() {

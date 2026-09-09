@@ -70,6 +70,12 @@ class MainActivity : FlutterActivity() {
                         SettingsStore.resetSettings(this)
                         result.success(true)
                     }
+                    // 崩溃日志：读取 / 上报后清空（可观测性）
+                    "getCrashLogs" -> result.success(CrashHandler.readLogs(this))
+                    "clearCrashLogs" -> {
+                        CrashHandler.clearLogs(this)
+                        result.success(true)
+                    }
                     else -> result.notImplemented()
                 }
             }.onFailure { e ->

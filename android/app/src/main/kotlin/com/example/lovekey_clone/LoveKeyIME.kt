@@ -146,14 +146,22 @@ class LoveKeyIME : InputMethodService() {
 
     /** 引擎就绪：同步西文模式状态，并回放初始化期间缓冲的按键 */
     private fun onRimeReady() {
-        isAsciiMode.value = Rime.isAsciiMode
+        isAsciiMode.value = rimeSafe(false) { Rime.isAsciiMode }
         // 以引擎实际状态为准，初始化设置桥（避免悬浮球菜单显示与键盘不一致）
-        SettingsStore.setAsciiMode(this, Rime.isAsciiMode)
+        SettingsStore.setAsciiMode(this, isAsciiMode.value)
         val buffered = synchronized(pendingKeys) {
             pendingKeys.toList().also { pendingKeys.clear() }
         }
         buffered.forEach { handleKeyPress(it) }
     }
+
+    /**
+     * Rime 引擎调用降级容错：
+     * native 层异常（句柄失效 / 崩溃）时捕获并返回默认值，键盘走系统输入通道兜底，
+     * 保证按键 / 候选 / 删除等任意路径都不会把崩溃抛到 UI 线程。
+     */
+    private inline fun <T> rimeSafe(defaultValue: T, block: () -> T): T =
+        runCatching { block() }.getOrDefault(defaultValue)
 
     private fun handleKeyPress(key: String) {
         hapticTick()
@@ -172,11 +180,13 @@ class LoveKeyIME : InputMethodService() {
             return
         }
         val keycode = key.firstOrNull()?.code ?: 0
-        val handled = Rime.processKey(keycode, 0)
+        val handled = rimeSafe(false) { Rime.processKey(keycode, 0) }
         if (handled) {
-            currentComposingText.value = Rime.compositionText
+            currentComposingText.value = rimeSafe("") { Rime.compositionText }
             currentInputConnection?.setComposingText(currentComposingText.value, 1)
-            currentCandidates.value = Rime.mContext?.candidates?.map { it.text } ?: emptyList()
+            currentCandidates.value = rimeSafe(emptyList()) {
+                Rime.mContext?.candidates?.map { it.text } ?: emptyList()
+            }
         } else {
             currentInputConnection?.commitText(key, 1)
         }
@@ -186,25 +196,27 @@ class LoveKeyIME : InputMethodService() {
     private fun toggleAsciiMode() {
         hapticTick()
         if (!rimeReady.get()) return
-        applyAsciiMode(!Rime.isAsciiMode)
+        applyAsciiMode(!rimeSafe(false) { Rime.isAsciiMode })
     }
 
     /** 幂等设置中/英模式，并写回设置桥（悬浮球 / Flutter 侧可见、可联动） */
     private fun applyAsciiMode(target: Boolean) {
         if (!rimeReady.get()) return
-        if (Rime.isAsciiMode == target) {
+        if (rimeSafe(!target) { Rime.isAsciiMode } == target) {
             // 状态已一致：仅同步 UI 与设置桥，不重复拨引擎
             isAsciiMode.value = target
             SettingsStore.setAsciiMode(this, target)
             return
         }
-        Rime.setOption("ascii_mode", target)
-        Rime.updateStatus()
-        isAsciiMode.value = Rime.isAsciiMode
+        rimeSafe(Unit) {
+            Rime.setOption("ascii_mode", target)
+            Rime.updateStatus()
+        }
+        isAsciiMode.value = rimeSafe(target) { Rime.isAsciiMode }
         SettingsStore.setAsciiMode(this, isAsciiMode.value)
         if (isAsciiMode.value) {
             // 切到西文时清空拼音输入态
-            Rime.clearComposition()
+            rimeSafe(Unit) { Rime.clearComposition() }
             currentComposingText.value = ""
             currentCandidates.value = emptyList()
         }
@@ -212,12 +224,12 @@ class LoveKeyIME : InputMethodService() {
 
     private fun pageUpCandidates() {
         hapticTick()
-        if (Rime.pageUp()) refreshCandidatesAfterPage()
+        if (rimeSafe(false) { Rime.pageUp() }) refreshCandidatesAfterPage()
     }
 
     private fun pageDownCandidates() {
         hapticTick()
-        if (Rime.pageDown()) refreshCandidatesAfterPage()
+        if (rimeSafe(false) { Rime.pageDown() }) refreshCandidatesAfterPage()
     }
 
     /** 按键 / 候选等操作的反馈：触觉震动 + 按键音，均跟随设置开关 */
@@ -237,8 +249,10 @@ class LoveKeyIME : InputMethodService() {
     }
 
     private fun refreshCandidatesAfterPage() {
-        currentCandidates.value = Rime.mContext?.candidates?.map { it.text } ?: emptyList()
-        currentComposingText.value = Rime.compositionText
+        currentCandidates.value = rimeSafe(emptyList()) {
+            Rime.mContext?.candidates?.map { it.text } ?: emptyList()
+        }
+        currentComposingText.value = rimeSafe("") { Rime.compositionText }
     }
 
     /** 候选上屏后：取联想词，并把上屏内容收录进剪贴板历史（供快捷插入） */
@@ -279,7 +293,7 @@ class LoveKeyIME : InputMethodService() {
                 val candidates = currentCandidates.value
 
                 // 候选翻页状态（仅拼音输入中有效）
-                val rimeMenu = Rime.mContext?.menu
+                val rimeMenu = rimeSafe(null) { Rime.mContext?.menu }
                 val pageNo = rimeMenu?.pageNo ?: 0
                 val canPrev = pageNo > 0
                 val canNext = rimeMenu?.isLastPage == false
@@ -319,26 +333,37 @@ class LoveKeyIME : InputMethodService() {
                             hapticTick()
                             val index = currentCandidates.value.indexOf(candidate)
                             if (index != -1) {
-                                Rime.selectCandidate(index)
-
-                                val commit = Rime.getRimeCommit()
-                                val committed = if (commit?.commitText != null && commit.commitText.isNotEmpty()) {
-                                    currentInputConnection?.commitText(commit.commitText, 1)
-                                    commit.commitText
-                                } else ""
-
-                                currentComposingText.value = Rime.compositionText
-                                if (currentComposingText.value.isEmpty()) {
-                                    currentCandidates.value = emptyList()
-                                } else {
-                                    currentInputConnection?.setComposingText(currentComposingText.value, 1)
-                                    val candidates = Rime.mContext?.candidates ?: emptyArray()
-                                    currentCandidates.value = candidates.map { it.text }
+                                val selected = rimeSafe(false) {
+                                    Rime.selectCandidate(index)
+                                    true
                                 }
-                                afterCommit(committed)
+                                if (!selected) {
+                                    // 引擎异常：直接上屏候选词兜底
+                                    currentInputConnection?.commitText(candidate, 1)
+                                    currentCandidates.value = emptyList()
+                                    afterCommit(candidate)
+                                } else {
+                                    val commit = rimeSafe(null) { Rime.getRimeCommit() }
+                                    val committed = if (commit?.commitText != null && commit.commitText.isNotEmpty()) {
+                                        currentInputConnection?.commitText(commit.commitText, 1)
+                                        commit.commitText
+                                    } else ""
+
+                                    currentComposingText.value = rimeSafe("") { Rime.compositionText }
+                                    if (currentComposingText.value.isEmpty()) {
+                                        currentCandidates.value = emptyList()
+                                    } else {
+                                        currentInputConnection?.setComposingText(currentComposingText.value, 1)
+                                        val candidates = rimeSafe(emptyArray()) {
+                                            Rime.mContext?.candidates ?: emptyArray()
+                                        }
+                                        currentCandidates.value = candidates.map { it.text }
+                                    }
+                                    afterCommit(committed)
+                                }
                             } else {
                                 currentInputConnection?.commitText(candidate, 1)
-                                Rime.clearComposition()
+                                rimeSafe(Unit) { Rime.clearComposition() }
                                 currentComposingText.value = ""
                                 currentCandidates.value = emptyList()
                                 afterCommit(candidate)
@@ -347,24 +372,35 @@ class LoveKeyIME : InputMethodService() {
                         onDelete = {
                             hapticTick()
                             if (currentComposingText.value.isNotEmpty()) {
-                                Rime.processKey(0xff08, 0)
-
-                                currentComposingText.value = Rime.compositionText
-
-                                if (currentComposingText.value.isEmpty()) {
-                                    currentInputConnection?.commitText("", 1)
+                                val deleted = rimeSafe(false) {
+                                    Rime.processKey(0xff08, 0)
+                                    true
+                                }
+                                if (!deleted) {
+                                    // 引擎异常：清空拼音态并退格一次兜底
+                                    currentComposingText.value = ""
                                     currentCandidates.value = emptyList()
+                                    currentInputConnection?.deleteSurroundingText(1, 0)
                                 } else {
-                                    currentInputConnection?.setComposingText(currentComposingText.value, 1)
-                                    val candidates = Rime.mContext?.candidates ?: emptyArray()
-                                    currentCandidates.value = candidates.map { it.text }
+                                    val newComposing = rimeSafe("") { Rime.compositionText }
+                                    currentComposingText.value = newComposing
+                                    if (newComposing.isEmpty()) {
+                                        currentInputConnection?.commitText("", 1)
+                                        currentCandidates.value = emptyList()
+                                    } else {
+                                        currentInputConnection?.setComposingText(newComposing, 1)
+                                        val candidates = rimeSafe(emptyArray()) {
+                                            Rime.mContext?.candidates ?: emptyArray()
+                                        }
+                                        currentCandidates.value = candidates.map { it.text }
+                                    }
                                 }
                             } else {
                                 currentInputConnection?.deleteSurroundingText(1, 0)
                             }
                         },
                         onReplaceDraft = { replacement ->
-                            Rime.clearComposition()
+                            rimeSafe(Unit) { Rime.clearComposition() }
                             currentComposingText.value = ""
                             currentCandidates.value = emptyList()
 
@@ -373,7 +409,7 @@ class LoveKeyIME : InputMethodService() {
                         },
                         onPerformAction = {
                             if (currentComposingText.value.isNotEmpty()) {
-                                Rime.clearComposition()
+                                rimeSafe(Unit) { Rime.clearComposition() }
                                 currentInputConnection?.commitText(currentComposingText.value, 1)
                                 currentComposingText.value = ""
                                 currentCandidates.value = emptyList()
@@ -401,13 +437,18 @@ class LoveKeyIME : InputMethodService() {
         intimacyLevel.value = SettingsStore.getIntimacy(this)
         personaName.value = SettingsStore.getPersona(this)
         if (rimeReady.get()) {
-            isAsciiMode.value = Rime.isAsciiMode
+            isAsciiMode.value = rimeSafe(false) { Rime.isAsciiMode }
         }
     }
 
     override fun onWindowHidden() {
         super.onWindowHidden()
         lifecycleOwner.onPause()
+        // 清理残留状态：联想词 / 拼音态不带到下一次唤起（防止切走后 UI 残留旧候选）
+        associateCandidates.value = emptyList()
+        currentCandidates.value = emptyList()
+        currentComposingText.value = ""
+        rimeSafe(Unit) { Rime.clearComposition() }
     }
 
     override fun onDestroy() {

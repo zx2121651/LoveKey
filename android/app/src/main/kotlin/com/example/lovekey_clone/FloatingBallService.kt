@@ -72,11 +72,20 @@ class FloatingBallService : Service() {
     private var menuView: View? = null
     private val longPressRunnable = Runnable { showQuickMenu() }
 
+    /** 设置变更监听注销句柄 */
+    private var settingsUnregister: Runnable? = null
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        // 监听设置变更：键盘内切换皮肤时实时联动悬浮球主色
+        settingsUnregister = SettingsStore.registerChangeListener(this) { _, key ->
+            if (key == "keyboard_theme") {
+                mainHandler.post { updateBallTheme() }
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -109,6 +118,8 @@ class FloatingBallService : Service() {
     override fun onDestroy() {
         isAnimating = false
         dismissMenu()
+        settingsUnregister?.run()
+        settingsUnregister = null
         ballView?.let { runCatching { windowManager.removeView(it) } }
         ballView = null
         isRunning.set(false)
@@ -324,6 +335,15 @@ class FloatingBallService : Service() {
         val name = SettingsStore.getThemeName(this)
         val theme = KEYBOARD_THEMES.firstOrNull { it.name == name } ?: KEYBOARD_THEMES.first()
         return theme.accent.toArgb()
+    }
+
+    /** 键盘内切换主题后，实时刷新悬浮球主色 */
+    private fun updateBallTheme() {
+        val ball = ballView ?: return
+        ball.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(themeAccentArgb())
+        }
     }
 
     /** 通过透明的输入代理页请求软键盘（当前 IME 为 LoveKey 时直接唤起） */

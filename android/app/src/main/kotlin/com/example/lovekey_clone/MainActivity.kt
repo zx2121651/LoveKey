@@ -85,6 +85,25 @@ class MainActivity : FlutterActivity() {
                         SettingsStore.setClipboardSaveEnabled(this, enabled)
                         result.success(true)
                     }
+                    // AI 回复流程状态机：发起 / 取消 / 查询（结果由 settings/events 事件广播）
+                    "startAIReply" -> {
+                        val scene = call.argument<String>("scene") ?: SettingsStore.SCENE_GENERAL
+                        val contextText = call.argument<String>("contextText")
+                        val session = AIReplyScheduler.begin(scene, contextText)
+                        result.success(
+                            JSONObject().apply {
+                                put("batch", session.batch)
+                                put("phase", session.phase.name)
+                                put("scene", session.scene)
+                            }.toString()
+                        )
+                    }
+                    "cancelAIReply" -> {
+                        val batch = call.argument<Number>("batch")?.toLong() ?: -1L
+                        AIReplyScheduler.cancel(batch)
+                        result.success(true)
+                    }
+                    "getAIReplyState" -> result.success(AIReplyScheduler.latestJson())
                     else -> result.notImplemented()
                 }
             }.onFailure { e ->
@@ -107,6 +126,20 @@ class MainActivity : FlutterActivity() {
                     changeListenerUnregister = SettingsStore.registerChangeListener(this@MainActivity) { _, key ->
                         settingsSink?.success(mapOf("key" to key, "settings" to SettingsStore.getAllSettings(this@MainActivity).toString()))
                     }
+                    // AI 回复流程状态机 -> Flutter：广播每一次阶段流转（含结果文本 / 错误）
+                    AIReplyScheduler.setListener { session ->
+                        settingsSink?.success(
+                            mapOf(
+                                "type" to "airReply",
+                                "batch" to session.batch,
+                                "phase" to session.phase.name,
+                                "scene" to session.scene,
+                                "contextText" to (session.contextText ?: ""),
+                                "resultText" to (session.resultText ?: ""),
+                                "error" to (session.error ?: "")
+                            )
+                        )
+                    }
                     // 启动即推送一次全量快照
                     events?.success(mapOf("key" to "snapshot", "settings" to SettingsStore.getAllSettings(this@MainActivity).toString()))
                 }
@@ -114,6 +147,7 @@ class MainActivity : FlutterActivity() {
                 override fun onCancel(arguments: Any?) {
                     changeListenerUnregister?.run()
                     changeListenerUnregister = null
+                    AIReplyScheduler.setListener(null)
                     settingsSink = null
                 }
             })

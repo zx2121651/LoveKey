@@ -20,9 +20,14 @@ class SettingsService {
   /// 设置被外部（如键盘 IME 内调整亲密度）修改时回调，用于刷新 UI
   VoidCallback? onChanged;
 
-  /// AI 回复流程状态机：任一阶段流转（生成中 / 成功 / 失败 / 超时 / 已取消）时回调。
-  /// payload 与原生事件一致：batch / phase / scene / contextText / resultText / error。
-  void Function(Map<String, dynamic> event)? onAIReplyChanged;
+  /// AI 回复状态机多订阅方集合（键盘面板 / 生成结果页 / 后续扩展页各自独立消费，互不覆盖）
+  final List<void Function(Map<String, dynamic>)> _airReplyListeners = [];
+
+  /// 订阅 AI 回复状态机事件，返回取消订阅函数。
+  void Function() addAIReplyListener(void Function(Map<String, dynamic>) listener) {
+    _airReplyListeners.add(listener);
+    return () => _airReplyListeners.remove(listener);
+  }
 
   int get intimacy => _intimacy;
   String get persona => _persona;
@@ -57,9 +62,12 @@ class SettingsService {
   void _listenForExternalChanges() {
     _eventsChannel.receiveBroadcastStream().listen((event) {
       if (event is! Map) return;
-      // AI 回复状态机事件：直接转发给订阅方，不参与设置字段合并
+      // AI 回复状态机事件：分发给所有订阅方，不参与设置字段合并
       if (event['type'] == 'airReply') {
-        onAIReplyChanged?.call(Map<String, dynamic>.from(event));
+        final payload = Map<String, dynamic>.from(event);
+        for (final listener in List.of(_airReplyListeners)) {
+          listener(payload);
+        }
         return;
       }
       final settings = event['settings'];
@@ -147,7 +155,7 @@ class SettingsService {
   // ------------------------------------------------------------------
 
   /// 发起一次 AI 回复生成，返回原生会话 JSON（含 batch），失败返回 null。
-  /// 生成结果经 onAIReplyChanged 异步回传，勿在此同步等待。
+  /// 生成结果经 addAIReplyListener 订阅的监听器异步回传，勿在此同步等待。
   Future<Map<String, dynamic>?> startAIReply(
     String scene, {
     String? contextText,

@@ -224,6 +224,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         child: TextField(
           controller: _searchController,
           textInputAction: TextInputAction.search,
+          onChanged: (_) => setState(() {}), // 实时刷新"搜索"按钮禁用态
           onSubmitted: (_) => _showGenerateDialog(context),
           decoration: InputDecoration(
             hintText: '输入 TA 说的话，获得高情商回复',
@@ -236,10 +237,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             suffixIcon: Padding(
               padding: const EdgeInsets.all(4.0),
               child: ElevatedButton(
-                onPressed: () => _showGenerateDialog(context),
+                // 空输入时禁用（防无效请求），输入后自动恢复
+                onPressed: _searchController.text.trim().isEmpty
+                    ? null
+                    : () => _showGenerateDialog(context),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.black87,
                   foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.black38,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(25),
                   ),
@@ -506,6 +511,7 @@ class _BuildGenerateResultSheetState extends State<_BuildGenerateResultSheet> {
   List<String> _replies = const [];
   List<Map<String, dynamic>> _aiReplyHistory = const [];
   bool _generating = false;
+  void Function()? _unregisterAIReplyListener;
 
   @override
   void initState() {
@@ -513,12 +519,13 @@ class _BuildGenerateResultSheetState extends State<_BuildGenerateResultSheet> {
     _loadReplies();
     _loadHistory();
     // 订阅 AI 回复流程状态机：键盘 / 悬浮球等入口生成期间，本页按钮一并进入禁用态
-    SettingsService.instance.onAIReplyChanged = _onAIReplyChanged;
+    _unregisterAIReplyListener =
+        SettingsService.instance.addAIReplyListener(_onAIReplyChanged);
   }
 
   @override
   void dispose() {
-    SettingsService.instance.onAIReplyChanged = null;
+    _unregisterAIReplyListener?.call();
     super.dispose();
   }
 
@@ -538,17 +545,15 @@ class _BuildGenerateResultSheetState extends State<_BuildGenerateResultSheet> {
   }
 
   /// 调用 AI 服务生成回复（未配置 API Key 时自动回退本地 Mock）
+  /// 注意：_generating 仅反映原生状态机（键盘/悬浮球）的生成态，
+  /// 本页自身加载用 _isLoading 表达，两者独立避免竞态互相覆盖。
   Future<void> _loadReplies() async {
-    setState(() {
-      _isLoading = true;
-      _generating = true;
-    });
+    setState(() => _isLoading = true);
     final replies = await AIService.instance.generateReplies(widget.query);
     if (!mounted) return;
     setState(() {
       _replies = replies;
       _isLoading = false;
-      _generating = false;
     });
   }
 

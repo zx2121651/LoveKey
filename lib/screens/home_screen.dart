@@ -504,21 +504,51 @@ class _BuildGenerateResultSheet extends StatefulWidget {
 class _BuildGenerateResultSheetState extends State<_BuildGenerateResultSheet> {
   bool _isLoading = true;
   List<String> _replies = const [];
+  List<Map<String, dynamic>> _aiReplyHistory = const [];
+  bool _generating = false;
 
   @override
   void initState() {
     super.initState();
     _loadReplies();
+    _loadHistory();
+    // 订阅 AI 回复流程状态机：键盘 / 悬浮球等入口生成期间，本页按钮一并进入禁用态
+    SettingsService.instance.onAIReplyChanged = _onAIReplyChanged;
+  }
+
+  @override
+  void dispose() {
+    SettingsService.instance.onAIReplyChanged = null;
+    super.dispose();
+  }
+
+  void _onAIReplyChanged(Map<String, dynamic> event) {
+    if (!mounted) return;
+    final phase = event['phase'] as String? ?? '';
+    setState(() => _generating = phase == 'GENERATING');
+    // 键盘等入口生成成功后同步刷新"最近"行，保持跨端一致
+    if (phase == 'COMMITTED' && (event['resultText'] as String? ?? '').isNotEmpty) {
+      _loadHistory();
+    }
+  }
+
+  Future<void> _loadHistory() async {
+    final history = await SettingsService.instance.getAIReplyHistory();
+    if (mounted) setState(() => _aiReplyHistory = history);
   }
 
   /// 调用 AI 服务生成回复（未配置 API Key 时自动回退本地 Mock）
   Future<void> _loadReplies() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _generating = true;
+    });
     final replies = await AIService.instance.generateReplies(widget.query);
     if (!mounted) return;
     setState(() {
       _replies = replies;
       _isLoading = false;
+      _generating = false;
     });
   }
 
@@ -582,13 +612,80 @@ class _BuildGenerateResultSheetState extends State<_BuildGenerateResultSheet> {
               ],
               const SizedBox(width: 8),
               IconButton(
-                icon: const Icon(Icons.refresh, size: 20, color: Color(0xFF586AFE)),
+                icon: _generating
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(
+                        Icons.refresh,
+                        size: 20,
+                        color: Color(0xFF586AFE),
+                      ),
                 tooltip: '换个说法',
-                onPressed: _isLoading ? null : _loadReplies,
+                onPressed: _isLoading || _generating ? null : _loadReplies,
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          // 状态机生成反馈：键盘 / 悬浮球等入口生成期间，本页一并展示并在完成后刷新"最近"
+          if (_generating)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  SizedBox(
+                    width: 10,
+                    height: 10,
+                    child: CircularProgressIndicator(strokeWidth: 1.5),
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'AI 回复生成中…',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF586AFE)),
+                  ),
+                ],
+              ),
+            ),
+          // 最近生成的 AI 回复：跨端复用（与键盘面板"最近"行同源），点击直接复制
+          if (_aiReplyHistory.isNotEmpty)
+            SizedBox(
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: Text(
+                        '最近',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                      ),
+                    ),
+                  ),
+                  ..._aiReplyHistory.take(8).map((item) {
+                    final text = item['text'] as String? ?? '';
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ActionChip(
+                        label: Text(
+                          text.length > 12 ? '${text.substring(0, 12)}…' : text,
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: const Color(0xFFF5F6FA),
+                        side: const BorderSide(color: Color(0xFFE4E6EF)),
+                        onPressed: _generating ? null : () => _copyToClipboard(text),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          const SizedBox(height: 12),
           Expanded(
             child: _isLoading
                 ? const Center(
@@ -630,8 +727,9 @@ class _BuildGenerateResultSheetState extends State<_BuildGenerateResultSheet> {
                                 color: Color(0xFF586AFE),
                                 size: 20,
                               ),
-                              onPressed: () =>
-                                  _copyToClipboard(_replies[index]),
+                              onPressed: _generating
+                                  ? null
+                                  : () => _copyToClipboard(_replies[index]),
                             ),
                           ],
                         ),

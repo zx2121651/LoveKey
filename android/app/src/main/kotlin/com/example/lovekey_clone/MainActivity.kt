@@ -72,8 +72,10 @@ class MainActivity : FlutterActivity() {
                     }
                     // 崩溃日志：读取 / 上报后清空（可观测性）
                     "getCrashLogs" -> result.success(CrashHandler.readLogs(this))
+                    "getCrashMeta" -> result.success(CrashHandler.getCrashMeta(this).toString())
                     "clearCrashLogs" -> {
                         CrashHandler.clearLogs(this)
+                        CrashHandler.doClearMeta()
                         result.success(true)
                     }
                     // 剪贴板自动收录开关（隐私）：关闭后键盘不再监听系统剪贴板

@@ -143,6 +143,17 @@ class LoveKeyIME : InputMethodService() {
     private var clipboardManager: ClipboardManager? = null
     private var clipboardListener: ClipboardManager.OnPrimaryClipChangedListener? = null
 
+    /** 候选分页缓存态：引擎变更后一次性刷新，Compose 组合期间不再访问 native */
+    private val pageNo = mutableStateOf(0)
+    private val canPrev = mutableStateOf(false)
+    private val canNext = mutableStateOf(false)
+
+    private fun resetPageState() {
+        pageNo.value = 0
+        canPrev.value = false
+        canNext.value = false
+    }
+
     override fun onCreate() {
         super.onCreate()
         // 全局未捕获异常兜底：崩溃写 logcat + 落盘，不掩盖系统崩溃语义（幂等）
@@ -189,6 +200,7 @@ class LoveKeyIME : InputMethodService() {
         isAsciiMode.value = rimeSafe(false) { Rime.isAsciiMode }
         // 以引擎实际状态为准，初始化设置桥（避免悬浮球菜单显示与键盘不一致）
         SettingsStore.setAsciiMode(this, isAsciiMode.value)
+        refreshEngineState()
         val buffered = synchronized(pendingKeys) {
             pendingKeys.toList().also { pendingKeys.clear() }
         }
@@ -227,11 +239,8 @@ class LoveKeyIME : InputMethodService() {
         val keycode = key.firstOrNull()?.code ?: 0
         val handled = rimeSafe(false) { Rime.processKey(keycode, 0) }
         if (handled) {
-            currentComposingText.value = rimeSafe("") { Rime.compositionText }
+            refreshEngineState()
             currentInputConnection?.setComposingText(currentComposingText.value, 1)
-            currentCandidates.value = rimeSafe(emptyList()) {
-                Rime.mContext?.candidates?.map { it.text } ?: emptyList()
-            }
         } else {
             currentInputConnection?.commitText(key, 1)
         }
@@ -264,6 +273,7 @@ class LoveKeyIME : InputMethodService() {
             rimeSafe(Unit) { Rime.clearComposition() }
             currentComposingText.value = ""
             currentCandidates.value = emptyList()
+            resetPageState()
         }
     }
 
@@ -293,11 +303,25 @@ class LoveKeyIME : InputMethodService() {
         runCatching { view.performHapticFeedback(feedback) }
     }
 
+    /** 翻页后刷新候选与分页缓存态 */
     private fun refreshCandidatesAfterPage() {
+        refreshEngineState()
+    }
+
+    /**
+     * 统一刷新引擎派生 UI 态（候选 / 拼音态 / 分页 / 翻页可用性）。
+     * 引擎每次变更后调用一次，将 native 结果落为内存 MutableState，
+     * Compose 组合期仅读 state，避免组合期反复访问引擎 native 造成卡顿。
+     */
+    private fun refreshEngineState() {
         currentCandidates.value = rimeSafe(emptyList()) {
             Rime.mContext?.candidates?.map { it.text } ?: emptyList()
         }
         currentComposingText.value = rimeSafe("") { Rime.compositionText }
+        val menu = rimeSafe(null) { Rime.mContext?.menu }
+        pageNo.value = menu?.pageNo ?: 0
+        canPrev.value = (menu?.pageNo ?: 0) > 0
+        canNext.value = menu?.isLastPage == false
     }
 
     /** 候选上屏后：取联想词，并把上屏内容收录进剪贴板历史（供快捷插入） */
@@ -347,6 +371,7 @@ class LoveKeyIME : InputMethodService() {
             currentComposingText.value = ""
             currentCandidates.value = emptyList()
             associateCandidates.value = emptyList()
+            resetPageState()
             rimeSafe(Unit) { Rime.clearComposition() }
         }
 
@@ -403,11 +428,10 @@ class LoveKeyIME : InputMethodService() {
                 val composing = currentComposingText.value
                 val candidates = currentCandidates.value
 
-                // 候选翻页状态（仅拼音输入中有效）
-                val rimeMenu = rimeSafe(null) { Rime.mContext?.menu }
-                val pageNo = rimeMenu?.pageNo ?: 0
-                val canPrev = pageNo > 0
-                val canNext = rimeMenu?.isLastPage == false
+                // 分页状态取自缓存态（refreshEngineState 刷新），组合期不访问 native 引擎
+                val pageNo = pageNo.value
+                val canPrev = canPrev.value
+                val canNext = canNext.value
 
                 MaterialTheme {
                     LoveKeyKeyboardUI(
@@ -451,7 +475,9 @@ class LoveKeyIME : InputMethodService() {
                                 if (!selected) {
                                     // 引擎异常：直接上屏候选词兜底
                                     currentInputConnection?.commitText(candidate, 1)
+                                    currentComposingText.value = ""
                                     currentCandidates.value = emptyList()
+                                    resetPageState()
                                     afterCommit(candidate)
                                 } else {
                                     val commit = rimeSafe(null) { Rime.getRimeCommit() }
@@ -460,15 +486,9 @@ class LoveKeyIME : InputMethodService() {
                                         commit.commitText
                                     } else ""
 
-                                    currentComposingText.value = rimeSafe("") { Rime.compositionText }
-                                    if (currentComposingText.value.isEmpty()) {
-                                        currentCandidates.value = emptyList()
-                                    } else {
+                                    refreshEngineState()
+                                    if (currentComposingText.value.isNotEmpty()) {
                                         currentInputConnection?.setComposingText(currentComposingText.value, 1)
-                                        val candidates = rimeSafe(emptyArray()) {
-                                            Rime.mContext?.candidates ?: emptyArray()
-                                        }
-                                        currentCandidates.value = candidates.map { it.text }
                                     }
                                     afterCommit(committed)
                                 }
@@ -477,6 +497,7 @@ class LoveKeyIME : InputMethodService() {
                                 rimeSafe(Unit) { Rime.clearComposition() }
                                 currentComposingText.value = ""
                                 currentCandidates.value = emptyList()
+                                resetPageState()
                                 afterCommit(candidate)
                             }
                         },
@@ -491,19 +512,14 @@ class LoveKeyIME : InputMethodService() {
                                     // 引擎异常：清空拼音态并退格一次兜底
                                     currentComposingText.value = ""
                                     currentCandidates.value = emptyList()
+                                    resetPageState()
                                     currentInputConnection?.deleteSurroundingText(1, 0)
                                 } else {
-                                    val newComposing = rimeSafe("") { Rime.compositionText }
-                                    currentComposingText.value = newComposing
-                                    if (newComposing.isEmpty()) {
+                                    refreshEngineState()
+                                    if (currentComposingText.value.isEmpty()) {
                                         currentInputConnection?.commitText("", 1)
-                                        currentCandidates.value = emptyList()
                                     } else {
-                                        currentInputConnection?.setComposingText(newComposing, 1)
-                                        val candidates = rimeSafe(emptyArray()) {
-                                            Rime.mContext?.candidates ?: emptyArray()
-                                        }
-                                        currentCandidates.value = candidates.map { it.text }
+                                        currentInputConnection?.setComposingText(currentComposingText.value, 1)
                                     }
                                 }
                             } else {
@@ -565,6 +581,7 @@ class LoveKeyIME : InputMethodService() {
         associateCandidates.value = emptyList()
         currentCandidates.value = emptyList()
         currentComposingText.value = ""
+        resetPageState()
         rimeSafe(Unit) { Rime.clearComposition() }
     }
 

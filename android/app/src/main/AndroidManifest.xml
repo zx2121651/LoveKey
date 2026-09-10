@@ -68,6 +68,18 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:windowSoftInputMode="stateAlwaysVisible|adjustResize"/>
+
+        <!-- 通知栏快捷磁贴：一键开关悬浮球（minSdk<24 时被系统忽略，不影响其余功能） -->
+        <service
+            android:name=".QuickSettingsTileService"
+            android:label="@string/floatball_tile_label"
+            android:icon="@drawable/ic_floatball_tile"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

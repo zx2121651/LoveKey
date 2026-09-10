@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Quick Settings 磁贴图标：圆形悬浮球 + 气泡（白色前景，系统自动渲染主题色） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- 气泡圆环（逆时针圆路径，viewport 中心 (8,8) 半径 5） -->
+    <path
+        android:pathData="M8,3 A5,5 0 1,1 8,13 A5,5 0 1,1 8,3 Z"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.6" />
+    <path
+        android:pathData="M13,13 L7,18"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round" />
+    <!-- 底部圆形主球 -->
+    <path
+        android:pathData="M17.5,13 A3,3 0 1,1 17.5,19 A3,3 0 1,1 17.5,13 Z"
+        android:fillColor="#FFFFFFFF" />
+</vector>

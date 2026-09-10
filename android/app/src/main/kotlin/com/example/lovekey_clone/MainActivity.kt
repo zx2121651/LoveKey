@@ -104,6 +104,17 @@ class MainActivity : FlutterActivity() {
                         AIReplyScheduler.cancel(batch)
                         result.success(true)
                     }
+                    // LLM 结果回填：Flutter 侧网络层完成后把结果交回状态机，触发 IME 上屏与事件广播
+                    "succeedAIReply" -> {
+                        val batch = call.argument<Number>("batch")?.toLong() ?: -1L
+                        val text = call.argument<String>("text").orEmpty()
+                        result.success(AIReplyScheduler.succeed(batch, text) != null)
+                    }
+                    "failAIReply" -> {
+                        val batch = call.argument<Number>("batch")?.toLong() ?: -1L
+                        val error = call.argument<String>("error") ?: "unknown error"
+                        result.success(AIReplyScheduler.fail(batch, error) != null)
+                    }
                     "getAIReplyState" -> result.success(AIReplyScheduler.latestJson())
                     else -> result.notImplemented()
                 }

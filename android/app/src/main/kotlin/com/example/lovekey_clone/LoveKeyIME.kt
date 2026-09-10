@@ -103,6 +103,11 @@ class LoveKeyIME : InputMethodService() {
     /** AI 回复状态机订阅：COMMITTED 时自动上屏（悬浮球 / 键盘 / Flutter 触发统一走此路径） */
     private var airReplyListener: AIReplyScheduler.Listener? = null
 
+    /** AI 回复流程的 UI 反馈态（面板展示生成中 / 结果 / 失败 / 超时） */
+    private val aiReplyPhase = mutableStateOf<AIReplyScheduler.Phase?>(null)
+    private val aiReplyResult = mutableStateOf("")
+    private val aiReplyError = mutableStateOf("")
+
     /**
      * 带重试的引擎启动：首次启动可能因词库文件仍被占用 / native 初始化未完成而失败，
      * 短暂休眠后最多重试 MAX_RIME_START_ATTEMPTS 次；最终失败也不再抛异常，
@@ -209,6 +214,9 @@ class LoveKeyIME : InputMethodService() {
 
         // 4. 订阅 AI 回复状态机：任何入口（悬浮球 / Flutter）生成完成后自动上屏到当前输入框
         airReplyListener = AIReplyScheduler.Listener { session ->
+            aiReplyPhase.value = session.phase
+            aiReplyResult.value = session.resultText ?: ""
+            aiReplyError.value = session.error ?: ""
             if (session.phase == AIReplyScheduler.Phase.COMMITTED) {
                 val text = session.resultText
                 if (!text.isNullOrBlank() && isInputViewShown) {
@@ -521,6 +529,9 @@ class LoveKeyIME : InputMethodService() {
                         associates = associateCandidates.value,
                         intimacy = intimacyLevel.value,
                         personaName = personaName.value,
+                        aiReplyPhase = aiReplyPhase.value,
+                        aiReplyResult = aiReplyResult.value,
+                        aiReplyError = aiReplyError.value,
                         onToggleAscii = { toggleAsciiMode() },
                         onPageUp = { pageUpCandidates() },
                         onPageDown = { pageDownCandidates() },
@@ -689,6 +700,9 @@ fun LoveKeyKeyboardUI(
     associates: List<String>,
     intimacy: Int,
     personaName: String,
+    aiReplyPhase: AIReplyScheduler.Phase?,
+    aiReplyResult: String,
+    aiReplyError: String,
     onSetIntimacy: (Int) -> Unit,
     onSelectPersona: (String) -> Unit,
     onKeyPress: (String) -> Unit,
@@ -1113,6 +1127,28 @@ fun LoveKeyKeyboardUI(
                             .size(20.dp)
                             .clickable { activeTab = "keyboard" }
                     )
+                }
+
+                // 状态机反馈行：生成中 / 已上屏 / 失败 / 超时 / 已取消
+                if (aiReplyPhase != null) {
+                    val (hint, hintColor) = when (aiReplyPhase) {
+                        AIReplyScheduler.Phase.GENERATING -> "⚡ 正在生成..." to LocalKeyboardTheme.current.accent
+                        AIReplyScheduler.Phase.COMMITTED -> "✓ 已生成并上屏：${aiReplyResult.take(24)}" to Color(0xFF2FB98A)
+                        AIReplyScheduler.Phase.FAILED -> "✗ 生成失败：${aiReplyError.ifBlank { "未知错误" }}" to Color(0xFFE05A5A)
+                        AIReplyScheduler.Phase.TIMEOUT -> "⏱ 生成超时，请重试" to Color(0xFFFFA000)
+                        AIReplyScheduler.Phase.CANCELLED -> "已取消" to Color(0xFF888888)
+                        AIReplyScheduler.Phase.IDLE -> null to null
+                    }
+                    if (hint != null) {
+                        Text(
+                            text = hint,
+                            color = hintColor,
+                            fontSize = 11.sp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                        )
+                    }
                 }
 
                 // Persona chips (switch style on the fly)

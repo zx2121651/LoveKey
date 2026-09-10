@@ -100,6 +100,9 @@ class LoveKeyIME : InputMethodService() {
     /** 设置变更监听注销句柄，避免泄漏 */
     private var settingsListenerUnregister: Runnable? = null
 
+    /** AI 回复状态机订阅：COMMITTED 时自动上屏（悬浮球 / 键盘 / Flutter 触发统一走此路径） */
+    private var airReplyListener: AIReplyScheduler.Listener? = null
+
     /**
      * 带重试的引擎启动：首次启动可能因词库文件仍被占用 / native 初始化未完成而失败，
      * 短暂休眠后最多重试 MAX_RIME_START_ATTEMPTS 次；最终失败也不再抛异常，
@@ -123,6 +126,18 @@ class LoveKeyIME : InputMethodService() {
 
     /** Rime 引擎是否就绪（异步初始化） */
     private val rimeReady = AtomicBoolean(false)
+
+    /**
+     * 键盘面板"⚡生成"入口：以当前输入框已有文本为上下文，走状态机 + 本地兜底生成。
+     * 生成完成由 airReplyListener 自动上屏，无需在 UI 层等结果。
+     */
+    private fun startAIReply(scene: String) {
+        val contextText = currentInputConnection
+            ?.getTextBeforeCursor(60, 0)
+            ?.toString()
+            ?.takeIf { it.isNotBlank() }
+        AIReplyProducer.start(this, scene, contextText)
+    }
 
     /** 初始化期间缓冲的按键，引擎就绪后回放 */
     private val pendingKeys = mutableListOf<String>()
@@ -191,6 +206,18 @@ class LoveKeyIME : InputMethodService() {
                 }
             }
         )
+
+        // 4. 订阅 AI 回复状态机：任何入口（悬浮球 / Flutter）生成完成后自动上屏到当前输入框
+        airReplyListener = AIReplyScheduler.Listener { session ->
+            if (session.phase == AIReplyScheduler.Phase.COMMITTED) {
+                val text = session.resultText
+                if (!text.isNullOrBlank() && isInputViewShown) {
+                    currentInputConnection?.commitText(text, 1)
+                    afterCommit(text)
+                }
+            }
+        }
+        AIReplyScheduler.addListener(airReplyListener!!)
     }
 
     // ------------------------------------------------------------------
@@ -414,6 +441,10 @@ class LoveKeyIME : InputMethodService() {
         super.onFinishInputView(finishingInput)
         // 输入面板收起：注销监听，避免后台持续读剪贴板损耗权限与性能
         unregisterClipboardAutoCapture()
+        // 键盘已收起：取消仍在生成的 AI 回复，避免结果在用户已离开输入场景后还插入
+        AIReplyScheduler.latest()?.takeIf { it.phase == AIReplyScheduler.Phase.GENERATING }?.let {
+            AIReplyScheduler.cancel(it.batch)
+        }
     }
 
     // ------------------------------------------------------------------
@@ -593,6 +624,9 @@ class LoveKeyIME : InputMethodService() {
                                 actionId = EditorInfo.IME_ACTION_DONE
                             }
                             currentInputConnection?.performEditorAction(actionId)
+                        },
+                        onAIReplyGenerate = { scene ->
+                            startAIReply(scene)
                         }
                     )
                 }
@@ -634,6 +668,8 @@ class LoveKeyIME : InputMethodService() {
         unregisterClipboardAutoCapture()
         settingsListenerUnregister?.run()
         settingsListenerUnregister = null
+        airReplyListener?.let(AIReplyScheduler::removeListener)
+        airReplyListener = null
         // 退出引擎：flush 用户词典（学习记录落盘到 rime_user/build）
         runCatching { Rime.destroy() }
         lifecycleOwner.onDestroy()
@@ -663,7 +699,8 @@ fun LoveKeyKeyboardUI(
     onToggleAscii: () -> Unit,
     onPageUp: () -> Unit,
     onPageDown: () -> Unit,
-    onCommitAssociate: (String) -> Unit
+    onCommitAssociate: (String) -> Unit,
+    onAIReplyGenerate: (String) -> Unit
 ) {
     var isGenerating by remember { mutableStateOf(false) }
     var activeTab by remember { mutableStateOf("keyboard") } // keyboard, ai_reply, quick_reply, custom_prompt, refine_draft, emoji, symbols
@@ -1052,6 +1089,21 @@ fun LoveKeyKeyboardUI(
                     }
 
                     Spacer(modifier = Modifier.weight(1f))
+
+                    // 状态机驱动的一键生成：走 AIReplyScheduler（防重入 + 超时 + 自动上屏）
+                    Button(
+                        onClick = {
+                            checkAndUseFeature { onAIReplyGenerate(quickScene) }
+                        },
+                        colors = ButtonDefaults.buttonColors(backgroundColor = LocalKeyboardTheme.current.accent),
+                        shape = RoundedCornerShape(14.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                        modifier = Modifier.height(28.dp)
+                    ) {
+                        Text("⚡生成", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
 
                     Icon(
                         imageVector = Icons.Default.Close,

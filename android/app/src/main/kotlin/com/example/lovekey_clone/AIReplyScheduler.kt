@@ -47,21 +47,27 @@ object AIReplyScheduler {
 
     private val lock = Object()
     private val batchSeq = AtomicLong(0L)
-    private val timeoutSeq = AtomicLong(0L)
     private val handler = Handler(Looper.getMainLooper())
 
     @Volatile
     private var active: ReplySession? = null
 
-    @Volatile
-    private var listener: Listener? = null
+    /** 监听器集合（多订阅方：IME 上屏 + Flutter 事件广播互不覆盖） */
+    private val listeners = java.util.concurrent.CopyOnWriteArrayList<Listener>()
+
+    /** 当前活跃会话的超时看门狗（仅锁内读写，随会话建立/终结而替换/移除） */
+    private var activeTimeout: Runnable? = null
 
     // ------------------------------------------------------------------
     // 对外控制
     // ------------------------------------------------------------------
 
-    fun setListener(l: Listener?) {
-        listener = l
+    fun addListener(l: Listener) {
+        listeners.addIfAbsent(l)
+    }
+
+    fun removeListener(l: Listener) {
+        listeners.remove(l)
     }
 
     /**
@@ -82,22 +88,22 @@ object AIReplyScheduler {
             val session = ReplySession(batch, Phase.GENERATING, scene, contextText, null, null)
             active = session
 
-            // 先清旧看门狗再挂新看门狗；凭 batch 校验只对本次生效
-            handler.removeCallbacksAndMessages(null)
-            val myTimeout = timeoutSeq.addAndGet(1L)
-            handler.postDelayed(Runnable {
+            // 仅替换本次会话的看门狗（不触碰已入队的 emit 事件）
+            activeTimeout?.let(handler::removeCallbacks)
+            val watchdog = Runnable {
                 synchronized(lock) {
-                    // 超时令牌校验：若期间已被 succeed/fail/cancel 接管则不再触发
+                    // 令牌校验：若期间已被 succeed/fail/cancel 接管则不再触发
                     val cur = active
-                    if (cur != null && cur.phase == Phase.GENERATING) {
+                    if (cur != null && cur.phase == Phase.GENERATING && cur.batch == batch) {
                         val timedOut = cur.copy(phase = Phase.TIMEOUT, error = "timeout")
                         active = timedOut
+                        activeTimeout = null
                         emit(timedOut)
                     }
                 }
-            }, TIMEOUT_MS)
-            // 用 timeoutSeq 记录以区分看门狗归属（避免误清后续会话）
-            timeoutSeq.get() // 保存边效应引用，保证 removeCallbacks 语义清晰
+            }
+            activeTimeout = watchdog
+            handler.postDelayed(watchdog, TIMEOUT_MS)
 
             emit(session)
             return session
@@ -108,30 +114,32 @@ object AIReplyScheduler {
     fun succeed(batch: Long, text: String): ReplySession? = synchronized(lock) {
         val cur = active ?: return null
         if (cur.batch != batch || cur.phase != Phase.GENERATING) return null
-        val finalSession = cur.copy(phase = Phase.COMMITTED, resultText = text)
-        active = finalSession
-        emit(finalSession)
-        finalSession
+        finish(Phase.COMMITTED, text = text, error = null)
     }
 
     /** 生成失败：仅当 batch 匹配才生效 */
     fun fail(batch: Long, error: String): ReplySession? = synchronized(lock) {
         val cur = active ?: return null
         if (cur.batch != batch || cur.phase != Phase.GENERATING) return null
-        val finalSession = cur.copy(phase = Phase.FAILED, error = error)
-        active = finalSession
-        emit(finalSession)
-        finalSession
+        finish(Phase.FAILED, text = null, error = error)
     }
 
     /** 手动取消：仅当 batch 匹配且仍在生成才生效 */
     fun cancel(batch: Long): ReplySession? = synchronized(lock) {
         val cur = active ?: return null
         if (cur.batch != batch || cur.phase != Phase.GENERATING) return null
-        val finalSession = cur.copy(phase = Phase.CANCELLED, error = "cancelled")
+        finish(Phase.CANCELLED, text = null, error = "cancelled")
+    }
+
+    /** 统一终结路径：移除看门狗并广播终态 */
+    private fun finish(phase: Phase, text: String?, error: String?): ReplySession {
+        val cur = active ?: throw IllegalStateException("no active session")
+        val finalSession = cur.copy(phase = phase, resultText = text, error = error)
         active = finalSession
+        activeTimeout?.let(handler::removeCallbacks)
+        activeTimeout = null
         emit(finalSession)
-        finalSession
+        return finalSession
     }
 
     /** 查询当前会话（无活跃生成返回 null） */
@@ -149,8 +157,8 @@ object AIReplyScheduler {
         put("error", s.error ?: "")
     }.toString()
 
-    /** 事件统一经主线程发出，保证 Listener（EventSink）在流畅线程安全消费 */
+    /** 事件统一经主线程发出，保证 Listener（EventSink / IME 上屏）在流畅线程安全消费 */
     private fun emit(session: ReplySession) {
-        handler.post { listener?.onPhaseChanged(session) }
+        handler.post { listeners.forEach { it.onPhaseChanged(session) } }
     }
 }

@@ -13,6 +13,7 @@ class MainActivity : FlutterActivity() {
 
     private var settingsSink: EventChannel.EventSink? = null
     private var changeListenerUnregister: Runnable? = null
+    private var airReplyListener: AIReplyScheduler.Listener? = null
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
@@ -127,7 +128,7 @@ class MainActivity : FlutterActivity() {
                         settingsSink?.success(mapOf("key" to key, "settings" to SettingsStore.getAllSettings(this@MainActivity).toString()))
                     }
                     // AI 回复流程状态机 -> Flutter：广播每一次阶段流转（含结果文本 / 错误）
-                    AIReplyScheduler.setListener { session ->
+                    airReplyListener = AIReplyScheduler.Listener { session ->
                         settingsSink?.success(
                             mapOf(
                                 "type" to "airReply",
@@ -140,6 +141,7 @@ class MainActivity : FlutterActivity() {
                             )
                         )
                     }
+                    AIReplyScheduler.addListener(airReplyListener!!)
                     // 启动即推送一次全量快照
                     events?.success(mapOf("key" to "snapshot", "settings" to SettingsStore.getAllSettings(this@MainActivity).toString()))
                 }
@@ -147,7 +149,8 @@ class MainActivity : FlutterActivity() {
                 override fun onCancel(arguments: Any?) {
                     changeListenerUnregister?.run()
                     changeListenerUnregister = null
-                    AIReplyScheduler.setListener(null)
+                    airReplyListener?.let(AIReplyScheduler::removeListener)
+                    airReplyListener = null
                     settingsSink = null
                 }
             })

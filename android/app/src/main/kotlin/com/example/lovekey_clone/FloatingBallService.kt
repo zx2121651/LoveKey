@@ -396,6 +396,11 @@ class FloatingBallService : Service() {
             openKeyboard()
             dismissMenu()
         }
+        // AI 回复：走状态机 + 本地兜底生成；若键盘正在输入，生成完成自动上屏
+        addMenuButton(menu, "AI 回复") {
+            dismissMenu()
+            AIReplyProducer.start(this, SettingsStore.SCENE_GENERAL, null)
+        }
         addMenuButton(menu, "打开设置") {
             openSettings()
             dismissMenu()

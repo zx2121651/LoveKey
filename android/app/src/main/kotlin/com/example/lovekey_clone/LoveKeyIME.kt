@@ -139,6 +139,10 @@ class LoveKeyIME : InputMethodService() {
      */
     private val isSensitiveInput = mutableStateOf(false)
 
+    /** 系统剪贴板监听（键盘显示期间收录外部复制内容到历史；隐藏/销毁时注销） */
+    private var clipboardManager: ClipboardManager? = null
+    private var clipboardListener: ClipboardManager.OnPrimaryClipChangedListener? = null
+
     override fun onCreate() {
         super.onCreate()
         // 全局未捕获异常兜底：崩溃写 logcat + 落盘，不掩盖系统崩溃语义（幂等）
@@ -345,6 +349,44 @@ class LoveKeyIME : InputMethodService() {
             associateCandidates.value = emptyList()
             rimeSafe(Unit) { Rime.clearComposition() }
         }
+
+        // 键盘展示期间监听系统剪贴板变化，自动收录（受隐私开关控制）
+        if (SettingsStore.getClipboardSaveEnabled(this)) {
+            registerClipboardAutoCapture()
+        }
+    }
+
+    /**
+     * 注册系统剪贴板监听：用户在目标应用主窗口前台复制后，键盘仍展示于该窗口，
+     * 此场景读剪贴板系统允许（Android 10+ 仅主应用在前台可读），失败则静默忽略。
+     * 幂等：已注册则跳过，避免 onStartInput 被反复调用时重复添加监听。
+     */
+    private fun registerClipboardAutoCapture() {
+        if (clipboardListener != null) return
+        val manager = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
+        clipboardManager = manager
+        val listener = ClipboardManager.OnPrimaryClipChangedListener {
+            val text = runCatching { manager.primaryClip?.getItemAt(0)?.text?.toString() }
+                .getOrNull()
+            if (!text.isNullOrBlank()) {
+                mainHandler.post { SettingsStore.addClipboardItem(this@LoveKeyIME, text) }
+            }
+        }
+        clipboardListener = listener
+        runCatching { manager.addPrimaryClipChangedListener(listener) }
+    }
+
+    private fun unregisterClipboardAutoCapture() {
+        val listener = clipboardListener ?: return
+        clipboardListener = null
+        runCatching { clipboardManager?.removePrimaryClipChangedListener(listener) }
+        clipboardManager = null
+    }
+
+    override fun onFinishInputView(finishingInput: Boolean) {
+        super.onFinishInputView(finishingInput)
+        // 输入面板收起：注销监听，避免后台持续读剪贴板损耗权限与性能
+        unregisterClipboardAutoCapture()
     }
 
     override fun onCreateInputView(): View {
@@ -527,6 +569,7 @@ class LoveKeyIME : InputMethodService() {
     }
 
     override fun onDestroy() {
+        unregisterClipboardAutoCapture()
         settingsListenerUnregister?.run()
         settingsListenerUnregister = null
         // 退出引擎：flush 用户词典（学习记录落盘到 rime_user/build）

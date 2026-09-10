@@ -225,19 +225,45 @@ object SettingsStore {
     // ------------------------------------------------------------------
 
     private const val MAX_CLIPBOARD_ITEMS = 10
+    private const val KEY_CLIPBOARD_SAVE_ENABLED = "clipboard_save_enabled"
 
-    /** 读取剪贴板历史（最新在前）；解析失败时自愈回空列表 */
-    fun getClipboardItems(context: Context): List<String> {
-        val raw = getPrefs(context).getString(KEY_CLIPBOARD, "[]") ?: "[]"
-        return runCatching {
-            val arr = JSONArray(raw)
-            (0 until arr.length()).mapNotNull { i -> arr.optString(i).takeIf { it.isNotBlank() } }
-        }.getOrDefault(emptyList())
+    /** 剪贴板自动收录开关（隐私） */
+    fun getClipboardSaveEnabled(context: Context): Boolean =
+        getPrefs(context).getBoolean(KEY_CLIPBOARD_SAVE_ENABLED, true)
+
+    fun setClipboardSaveEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_CLIPBOARD_SAVE_ENABLED, enabled).apply()
     }
 
-    /** 追加一条剪贴板历史：去重（已存在则移到最前），最多保留 MAX_CLIPBOARD_ITEMS 条 */
+    /** 读取剪贴板历史（最新在前）；加密项自动解密，旧明文自愈迁移，解析失败回空列表 */
+    fun getClipboardItems(context: Context): List<String> {
+        val raw = getPrefs(context).getString(KEY_CLIPBOARD, "[]") ?: "[]"
+        var migrated = false
+        val result = runCatching {
+            val arr = JSONArray(raw)
+            (0 until arr.length()).mapNotNull { i ->
+                val item = arr.optString(i)
+                if (item.isBlank()) return@mapNotNull null
+                val decrypted = ClipboardCipher.decrypt(context, item) ?: item
+                when {
+                    !ClipboardCipher.isEncrypted(item) -> {
+                        // 旧明文：标记迁移，下次持久化自动加密
+                        migrated = true
+                        decrypted
+                    }
+                    decrypted != item -> decrypted // 密文解密成功
+                    else -> null // 密文但解密失败（如密钥被清除）：视为损坏丢弃
+                }
+            }
+        }.getOrDefault(emptyList())
+        if (migrated) persistClipboard(context, result)
+        return result
+    }
+
+    /** 追加一条剪贴板历史：去重（已存在则移到最前），最多保留 MAX_CLIPBOARD_ITEMS 条，加密后落盘 */
     fun addClipboardItem(context: Context, text: String) {
         val trimmed = text.trim().ifBlank { return }
+        if (!getClipboardSaveEnabled(context)) return
         val list = getClipboardItems(context).toMutableList()
         list.remove(trimmed)
         list.add(0, trimmed)
@@ -256,7 +282,7 @@ object SettingsStore {
 
     private fun persistClipboard(context: Context, list: List<String>) {
         val arr = JSONArray()
-        list.forEach { arr.put(it) }
+        list.forEach { arr.put(ClipboardCipher.encrypt(context, it)) }
         getPrefs(context).edit().putString(KEY_CLIPBOARD, arr.toString()).apply()
     }
 
@@ -283,15 +309,23 @@ object SettingsStore {
         put(KEY_PERSONA, getPersona(context))
         put(KEY_CUSTOM_PERSONAS, JSONArray(getCustomPersonas(context).map { it.toString() }))
         put(KEY_CUSTOM_PHRASES, JSONArray(getCustomPhrases(context).map { it.toString() }))
+        put(KEY_THEME, getThemeName(context))
+        put(KEY_ASCII_MODE, getAsciiMode(context))
+        put(KEY_HAPTIC, getHapticEnabled(context))
+        put(KEY_SOUND, getKeySoundEnabled(context))
+        put(KEY_CLIPBOARD_SAVE_ENABLED, getClipboardSaveEnabled(context))
+        put(KEY_CLIPBOARD, JSONArray(getClipboardItems(context)))
     }
 
-    /** 恢复默认设置（保留悬浮球位置） */
+    /** 恢复默认设置（保留悬浮球位置；剪贴板历史属用户数据一并清除） */
     fun resetSettings(context: Context) {
         getPrefs(context).edit()
             .remove(KEY_INTIMACY)
             .remove(KEY_PERSONA)
             .remove(KEY_CUSTOM_PERSONAS)
             .remove(KEY_CUSTOM_PHRASES)
+            .remove(KEY_CLIPBOARD)
+            .remove(KEY_CLIPBOARD_SAVE_ENABLED)
             .apply()
     }
 }

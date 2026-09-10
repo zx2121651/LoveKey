@@ -76,6 +76,13 @@ class MainActivity : FlutterActivity() {
                         CrashHandler.clearLogs(this)
                         result.success(true)
                     }
+                    // 剪贴板自动收录开关（隐私）：关闭后键盘不再监听系统剪贴板
+                    "getClipboardSaveEnabled" -> result.success(SettingsStore.getClipboardSaveEnabled(this))
+                    "setClipboardSaveEnabled" -> {
+                        val enabled = call.argument<Boolean>("enabled") ?: true
+                        SettingsStore.setClipboardSaveEnabled(this, enabled)
+                        result.success(true)
+                    }
                     else -> result.notImplemented()
                 }
             }.onFailure { e ->

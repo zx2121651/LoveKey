@@ -8,6 +8,8 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.text.InputType
+import android.content.res.Configuration
+import android.graphics.Rect
 import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.ViewGroup
@@ -412,6 +414,49 @@ class LoveKeyIME : InputMethodService() {
         super.onFinishInputView(finishingInput)
         // 输入面板收起：注销监听，避免后台持续读剪贴板损耗权限与性能
         unregisterClipboardAutoCapture()
+    }
+
+    // ------------------------------------------------------------------
+    // 横屏 / 全屏稳定性（商业输入法必需）：候选区在提取面板 / 旋转后仍正确可点
+    // ------------------------------------------------------------------
+
+    /** 本 IME 不提供分离式提取编辑框，全屏/可滚动输入一律禁用系统提取面板，
+     *  保证候选区与自绘键盘始终在同一窗口内、候选可见可点。 */
+    override fun onEvaluateFullscreenMode(): Boolean = false
+
+    /** 显式声明触摸区覆盖整个键盘窗口，旋转/异形屏后动画、候选、联想命中不漂移 */
+    override fun onComputeInsets(outInsets: InputMethodService.Insets?) {
+        super.onComputeInsets(outInsets)
+        val root = rootView ?: return
+        val insets = outInsets ?: return
+        val frame = Rect()
+        root.getWindowVisibleDisplayFrame(frame)
+        // 键盘无浮动区域：内容顶部贴窗口顶，触摸区覆盖整个键盘可视范围
+        insets.contentTopInsets = 0
+        insets.visibleTopInsets = 0
+        insets.touchableInsets = InputMethodService.Insets.TOUCHABLE_INSETS_REGION
+        insets.touchableRegion.set(0, 0, frame.width(), frame.height())
+    }
+
+    /** 横竖屏切换：让系统按新尺寸重排输入窗口，并清空前一个屏的拼音/候选残留 */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        val root = rootView
+        if (root != null) {
+            // 触发输入窗口按新方向尺寸重新测量/布局，避免旋转后键盘错位或超出屏幕
+            root.post {
+                runCatching {
+                    updateSoftInputWindowSize()
+                    requestLayout()
+                }
+            }
+        }
+        // 旋转后视角变化，残留的拼音态/候选/联想不带到新屏幕，统一清理以免错位
+        currentComposingText.value = ""
+        currentCandidates.value = emptyList()
+        associateCandidates.value = emptyList()
+        resetPageState()
+        rimeSafe(Unit) { Rime.clearComposition() }
     }
 
     override fun onCreateInputView(): View {

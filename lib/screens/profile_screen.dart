@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/membership.dart';
 import '../services/float_ball_service.dart';
+import '../services/settings_service.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -217,6 +218,7 @@ class _SettingsSheet extends StatefulWidget {
 
 class _SettingsSheetState extends State<_SettingsSheet> {
   bool _floatBallOn = false;
+  List<Map<String, dynamic>> _aiReplyHistory = const [];
 
   @override
   void initState() {
@@ -224,6 +226,22 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     FloatBallService.instance.isShowing().then((v) {
       if (mounted) setState(() => _floatBallOn = v);
     });
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    final history = await SettingsService.instance.getAIReplyHistory();
+    if (mounted) setState(() => _aiReplyHistory = history);
+  }
+
+  Future<void> _clearHistory() async {
+    await SettingsService.instance.clearAIReplyHistory();
+    if (mounted) {
+      setState(() => _aiReplyHistory = const []);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('AI 回复历史已清空')),
+      );
+    }
   }
 
   Future<void> _toggleFloatBall(bool value) async {
@@ -274,6 +292,67 @@ class _SettingsSheetState extends State<_SettingsSheet> {
               '任意界面点击悬浮球，快速唤起恋爱键盘',
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
+          ),
+          const Divider(height: 1),
+          // AI 回复历史：查看最近生成的回复，可清空（键盘面板"最近"行同源数据）
+          ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+            leading: const Icon(Icons.auto_awesome, color: Color(0xFF586AFE), size: 22),
+            title: const Text('AI 回复历史', style: TextStyle(fontSize: 14)),
+            subtitle: Text(
+              _aiReplyHistory.isEmpty ? '暂无历史记录' : '共 ${_aiReplyHistory.length} 条，点击可查看',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            children: [
+              if (_aiReplyHistory.isNotEmpty)
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _aiReplyHistory.length,
+                    itemBuilder: (context, index) {
+                      final item = _aiReplyHistory[index];
+                      final text = item['text'] as String? ?? '';
+                      final scene = item['scene'] as String? ?? '通用';
+                      final time = (item['time'] as num?)?.toInt() ?? 0;
+                      final timeText = time > 0
+                          ? DateTime.fromMillisecondsSinceEpoch(time)
+                              .toLocal()
+                              .toString()
+                              .substring(5, 16)
+                          : '';
+                      return ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.chat_bubble_outline, size: 18, color: Colors.grey),
+                        title: Text(
+                          text,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        subtitle: Text(
+                          '$scene · $timeText',
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              if (_aiReplyHistory.isNotEmpty)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: _clearHistory,
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('清空历史'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFFE05A5A),
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 12),
         ],

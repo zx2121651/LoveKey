@@ -20,6 +20,10 @@ class SettingsService {
   /// 设置被外部（如键盘 IME 内调整亲密度）修改时回调，用于刷新 UI
   VoidCallback? onChanged;
 
+  /// AI 回复流程状态机：任一阶段流转（生成中 / 成功 / 失败 / 超时 / 已取消）时回调。
+  /// payload 与原生事件一致：batch / phase / scene / contextText / resultText / error。
+  void Function(Map<String, dynamic> event)? onAIReplyChanged;
+
   int get intimacy => _intimacy;
   String get persona => _persona;
   List<Map<String, dynamic>> get customPersonas => List.unmodifiable(_customPersonas);
@@ -48,23 +52,28 @@ class SettingsService {
     _listenForExternalChanges();
   }
 
-  /// 订阅原生事件流：IME 键盘内修改亲密度/人设时，Flutter 侧实时刷新
+  /// 订阅原生事件流：IME 键盘内修改亲密度/人设时，Flutter 侧实时刷新；
+  /// AI 回复状态机阶段流转也经同一通道广播（type == 'airReply'）。
   void _listenForExternalChanges() {
     _eventsChannel.receiveBroadcastStream().listen((event) {
-      if (event is Map) {
-        final settings = event['settings'];
-        if (settings is String) {
-          try {
-            final data = jsonDecode(settings) as Map<String, dynamic>;
-            _intimacy = (data['intimacy_level'] as num?)?.toInt() ?? _intimacy;
-            _persona = data['selected_persona'] as String? ?? _persona;
-            final rawList = data['custom_personas'] as List? ?? [];
-            _customPersonas = rawList
-                .map((e) => e is String ? jsonDecode(e) as Map<String, dynamic> : e as Map<String, dynamic>)
-                .toList();
-            onChanged?.call();
-          } catch (_) {}
-        }
+      if (event is! Map) return;
+      // AI 回复状态机事件：直接转发给订阅方，不参与设置字段合并
+      if (event['type'] == 'airReply') {
+        onAIReplyChanged?.call(Map<String, dynamic>.from(event));
+        return;
+      }
+      final settings = event['settings'];
+      if (settings is String) {
+        try {
+          final data = jsonDecode(settings) as Map<String, dynamic>;
+          _intimacy = (data['intimacy_level'] as num?)?.toInt() ?? _intimacy;
+          _persona = data['selected_persona'] as String? ?? _persona;
+          final rawList = data['custom_personas'] as List? ?? [];
+          _customPersonas = rawList
+              .map((e) => e is String ? jsonDecode(e) as Map<String, dynamic> : e as Map<String, dynamic>)
+              .toList();
+          onChanged?.call();
+        } catch (_) {}
       }
     });
   }
@@ -131,5 +140,103 @@ class SettingsService {
     } catch (_) {
       _channelAvailable = false;
     }
+  }
+
+  // ------------------------------------------------------------------
+  // AI 回复流程状态机桥接（原生 AIReplyScheduler）
+  // ------------------------------------------------------------------
+
+  /// 发起一次 AI 回复生成，返回原生会话 JSON（含 batch），失败返回 null。
+  /// 生成结果经 onAIReplyChanged 异步回传，勿在此同步等待。
+  Future<Map<String, dynamic>?> startAIReply(
+    String scene, {
+    String? contextText,
+  }) async {
+    if (!_channelAvailable) return null;
+    try {
+      final raw = await _channel.invokeMethod<String>('startAIReply', {
+        'scene': scene,
+        'contextText': contextText ?? '',
+      });
+      return raw == null ? null : jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> cancelAIReply(int batch) async {
+    if (!_channelAvailable) return;
+    try {
+      await _channel.invokeMethod('cancelAIReply', {'batch': batch});
+    } catch (_) {}
+  }
+
+  /// LLM 生成完成后回填结果；成功返回 true（批次不匹配或已终态则 false）
+  Future<bool> succeedAIReply(int batch, String text) async {
+    if (!_channelAvailable) return false;
+    try {
+      return await _channel.invokeMethod<bool>('succeedAIReply', {
+            'batch': batch,
+            'text': text,
+          }) ??
+          false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> failAIReply(int batch, String error) async {
+    if (!_channelAvailable) return false;
+    try {
+      return await _channel.invokeMethod<bool>('failAIReply', {
+            'batch': batch,
+            'error': error,
+          }) ??
+          false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 查询当前会话快照（无活跃会话返回 null）
+  Future<Map<String, dynamic>?> getAIReplyState() async {
+    if (!_channelAvailable) return null;
+    try {
+      final raw = await _channel.invokeMethod<String>('getAIReplyState');
+      return raw == null ? null : jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 读取 AI 回复历史（最新在前，每条为 JSON 字符串）
+  Future<List<Map<String, dynamic>>> getAIReplyHistory() async {
+    if (!_channelAvailable) return const [];
+    try {
+      final rawList = await _channel.invokeListMethod<String>('getAIReplyHistory') ?? const [];
+      return rawList
+          .map((e) => jsonDecode(e) as Map<String, dynamic>)
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> clearAIReplyHistory() async {
+    if (!_channelAvailable) return;
+    try {
+      await _channel.invokeMethod('clearAIReplyHistory');
+    } catch (_) {}
+  }
+
+  /// 手动把一条回复写入历史（如 Flutter 页内选中 LLM 结果），供键盘"最近"行复用
+  Future<void> addAIReplyHistory(String scene, String text) async {
+    if (!_channelAvailable) return;
+    try {
+      await _channel.invokeMethod('addAIReplyHistory', {
+        'scene': scene,
+        'text': text,
+      });
+    } catch (_) {}
   }
 }

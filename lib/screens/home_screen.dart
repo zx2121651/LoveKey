@@ -4,6 +4,7 @@ import 'counselor_screen.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import '../services/ai_service.dart';
+import '../services/settings_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -522,6 +523,8 @@ class _BuildGenerateResultSheetState extends State<_BuildGenerateResultSheet> {
   }
 
   void _copyToClipboard(String text) {
+    // 页内选中的回复同步入 AI 回复历史，键盘"最近"行跨端复用
+    SettingsService.instance.addAIReplyHistory('通用', text);
     Clipboard.setData(ClipboardData(text: text)).then((_) {
       if (mounted) {
         ScaffoldMessenger.of(

@@ -287,6 +287,49 @@ object SettingsStore {
     }
 
     // ------------------------------------------------------------------
+    // AI 回复历史（状态机产出结果的生命周期：可复用 / 可清除）
+    // ------------------------------------------------------------------
+
+    private const val KEY_AI_REPLY_HISTORY = "ai_reply_history"
+    private const val MAX_AI_REPLY_HISTORY = 20
+
+    /** 追加一条 AI 回复历史（最新在前，去重，最多 20 条） */
+    fun addAIReplyHistory(context: Context, scene: String, text: String) {
+        val trimmed = text.trim().ifBlank { return }
+        val list = getAIReplyHistory(context).toMutableList()
+        list.removeAll { it.optString("text") == trimmed }
+        list.add(0, JSONObject().apply {
+            put("scene", scene)
+            put("text", trimmed)
+            put("time", System.currentTimeMillis())
+        })
+        while (list.size > MAX_AI_REPLY_HISTORY) list.removeAt(list.size - 1)
+        persistAIReplyHistory(context, list)
+    }
+
+    /** 读取 AI 回复历史（最新在前）；解析失败自愈回空列表 */
+    fun getAIReplyHistory(context: Context): List<JSONObject> {
+        val raw = getPrefs(context).getString(KEY_AI_REPLY_HISTORY, "[]") ?: "[]"
+        return runCatching {
+            val arr = JSONArray(raw)
+            (0 until arr.length()).mapNotNull { i ->
+                val item = arr.optJSONObject(i)
+                if (item != null && item.optString("text").isNotBlank()) item else null
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    fun clearAIReplyHistory(context: Context) {
+        getPrefs(context).edit().remove(KEY_AI_REPLY_HISTORY).apply()
+    }
+
+    private fun persistAIReplyHistory(context: Context, list: List<JSONObject>) {
+        val arr = JSONArray()
+        list.forEach { arr.put(it) }
+        getPrefs(context).edit().putString(KEY_AI_REPLY_HISTORY, arr.toString()).apply()
+    }
+
+    // ------------------------------------------------------------------
     // 悬浮球位置持久化
     // ------------------------------------------------------------------
 

@@ -116,6 +116,21 @@ class MainActivity : FlutterActivity() {
                         result.success(AIReplyScheduler.fail(batch, error) != null)
                     }
                     "getAIReplyState" -> result.success(AIReplyScheduler.latestJson())
+                    // AI 回复历史：Flutter 设置页可查看 / 清空（键盘面板内复用走 IME 本地 state）
+                    "getAIReplyHistory" -> result.success(
+                        SettingsStore.getAIReplyHistory(this).map { it.toString() }
+                    )
+                    "clearAIReplyHistory" -> {
+                        SettingsStore.clearAIReplyHistory(this)
+                        result.success(true)
+                    }
+                    // Flutter 页内生成后选中的回复也入历史，键盘"最近"行跨端复用
+                    "addAIReplyHistory" -> {
+                        val scene = call.argument<String>("scene") ?: SettingsStore.SCENE_GENERAL
+                        val text = call.argument<String>("text").orEmpty()
+                        SettingsStore.addAIReplyHistory(this, scene, text)
+                        result.success(true)
+                    }
                     else -> result.notImplemented()
                 }
             }.onFailure { e ->
@@ -140,6 +155,12 @@ class MainActivity : FlutterActivity() {
                     }
                     // AI 回复流程状态机 -> Flutter：广播每一次阶段流转（含结果文本 / 错误）
                     airReplyListener = AIReplyScheduler.Listener { session ->
+                        // 历史落盘不依赖 IME 存活：键盘未打开时（如 Flutter 页内生成）也能记录复用
+                        if (session.phase == AIReplyScheduler.Phase.COMMITTED &&
+                            !session.resultText.isNullOrBlank()
+                        ) {
+                            SettingsStore.addAIReplyHistory(this@MainActivity, session.scene, session.resultText)
+                        }
                         settingsSink?.success(
                             mapOf(
                                 "type" to "airReply",

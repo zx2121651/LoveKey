@@ -108,6 +108,9 @@ class LoveKeyIME : InputMethodService() {
     private val aiReplyResult = mutableStateOf("")
     private val aiReplyError = mutableStateOf("")
 
+    /** AI 回复历史（最新在前），COMMITTED 后刷新供面板复用 */
+    private val aiReplyHistory = mutableStateOf<List<String>>(emptyList())
+
     /**
      * 带重试的引擎启动：首次启动可能因词库文件仍被占用 / native 初始化未完成而失败，
      * 短暂休眠后最多重试 MAX_RIME_START_ATTEMPTS 次；最终失败也不再抛异常，
@@ -219,9 +222,14 @@ class LoveKeyIME : InputMethodService() {
             aiReplyError.value = session.error ?: ""
             if (session.phase == AIReplyScheduler.Phase.COMMITTED) {
                 val text = session.resultText
-                if (!text.isNullOrBlank() && isInputViewShown) {
-                    currentInputConnection?.commitText(text, 1)
-                    afterCommit(text)
+                if (!text.isNullOrBlank()) {
+                    // 产出结果入历史（面板可复用 / Flutter 设置页可查看）
+                    SettingsStore.addAIReplyHistory(this, session.scene, text)
+                    aiReplyHistory.value = SettingsStore.getAIReplyHistory(this).map { it.optString("text") }
+                    if (isInputViewShown) {
+                        currentInputConnection?.commitText(text, 1)
+                        afterCommit(text)
+                    }
                 }
             }
         }
@@ -532,6 +540,7 @@ class LoveKeyIME : InputMethodService() {
                         aiReplyPhase = aiReplyPhase.value,
                         aiReplyResult = aiReplyResult.value,
                         aiReplyError = aiReplyError.value,
+                        aiReplyHistory = aiReplyHistory.value,
                         onToggleAscii = { toggleAsciiMode() },
                         onPageUp = { pageUpCandidates() },
                         onPageDown = { pageDownCandidates() },
@@ -638,6 +647,11 @@ class LoveKeyIME : InputMethodService() {
                         },
                         onAIReplyGenerate = { scene ->
                             startAIReply(scene)
+                        },
+                        onAIReplyHistoryTap = { text ->
+                            // 历史复用：直接上屏 + 收录剪贴板
+                            currentInputConnection?.commitText(text, 1)
+                            afterCommit(text)
                         }
                     )
                 }
@@ -662,6 +676,8 @@ class LoveKeyIME : InputMethodService() {
         if (rimeReady.get()) {
             isAsciiMode.value = rimeSafe(false) { Rime.isAsciiMode }
         }
+        // 键盘唤起时同步 AI 回复历史（键盘面板"最近"行即时可用，无需先生成一次）
+        aiReplyHistory.value = SettingsStore.getAIReplyHistory(this).map { it.optString("text") }
     }
 
     override fun onWindowHidden() {
@@ -673,6 +689,10 @@ class LoveKeyIME : InputMethodService() {
         currentComposingText.value = ""
         resetPageState()
         rimeSafe(Unit) { Rime.clearComposition() }
+        // 生成状态提示不残留到下一次唤起：收起后清空，避免显示过期结果
+        aiReplyPhase.value = null
+        aiReplyResult.value = ""
+        aiReplyError.value = ""
     }
 
     override fun onDestroy() {
@@ -703,6 +723,7 @@ fun LoveKeyKeyboardUI(
     aiReplyPhase: AIReplyScheduler.Phase?,
     aiReplyResult: String,
     aiReplyError: String,
+    aiReplyHistory: List<String>,
     onSetIntimacy: (Int) -> Unit,
     onSelectPersona: (String) -> Unit,
     onKeyPress: (String) -> Unit,
@@ -714,7 +735,8 @@ fun LoveKeyKeyboardUI(
     onPageUp: () -> Unit,
     onPageDown: () -> Unit,
     onCommitAssociate: (String) -> Unit,
-    onAIReplyGenerate: (String) -> Unit
+    onAIReplyGenerate: (String) -> Unit,
+    onAIReplyHistoryTap: (String) -> Unit
 ) {
     var isGenerating by remember { mutableStateOf(false) }
     var activeTab by remember { mutableStateOf("keyboard") } // keyboard, ai_reply, quick_reply, custom_prompt, refine_draft, emoji, symbols
@@ -1105,16 +1127,23 @@ fun LoveKeyKeyboardUI(
                     Spacer(modifier = Modifier.weight(1f))
 
                     // 状态机驱动的一键生成：走 AIReplyScheduler（防重入 + 超时 + 自动上屏）
+                    // GENERATING 时禁用，防连点误解（状态机虽会抢占取消旧会话，UI 也应表达）
+                    val generating = aiReplyPhase == AIReplyScheduler.Phase.GENERATING
                     Button(
                         onClick = {
                             checkAndUseFeature { onAIReplyGenerate(quickScene) }
                         },
-                        colors = ButtonDefaults.buttonColors(backgroundColor = LocalKeyboardTheme.current.accent),
+                        enabled = !generating,
+                        colors = ButtonDefaults.buttonColors(
+                            backgroundColor = LocalKeyboardTheme.current.accent,
+                            disabledBackgroundColor = LocalKeyboardTheme.current.accent.copy(alpha = 0.5f),
+                            disabledContentColor = Color.White
+                        ),
                         shape = RoundedCornerShape(14.dp),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                         modifier = Modifier.height(28.dp)
                     ) {
-                        Text("⚡生成", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(if (generating) "生成中…" else "⚡生成", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
@@ -1148,6 +1177,42 @@ fun LoveKeyKeyboardUI(
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp)
                         )
+                    }
+                }
+
+                // 最近生成的 AI 回复（历史复用）：点击直接上屏
+                if (aiReplyHistory.isNotEmpty()) {
+                    LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item {
+                            Text(
+                                text = "最近",
+                                color = Color(0xFF9A9A9A),
+                                fontSize = 11.sp,
+                                modifier = Modifier.alignByHeight(alignment = Alignment.CenterVertically)
+                            )
+                        }
+                        items(aiReplyHistory.take(6)) { historyText ->
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color(0xFFF5F6FA), RoundedCornerShape(14.dp))
+                                    .border(1.dp, Color(0xFFE4E6EF), RoundedCornerShape(14.dp))
+                                    .clickable { onAIReplyHistoryTap(historyText) }
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = historyText.take(14) + if (historyText.length > 14) "…" else "",
+                                    color = Color(0xFF2B2F35),
+                                    fontSize = 11.sp,
+                                    maxLines = 1
+                                )
+                            }
+                        }
                     }
                 }
 

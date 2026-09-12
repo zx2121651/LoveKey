@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/membership.dart';
 import '../services/float_ball_service.dart';
@@ -300,7 +301,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
             leading: const Icon(Icons.auto_awesome, color: Color(0xFF586AFE), size: 22),
             title: const Text('AI 回复历史', style: TextStyle(fontSize: 14)),
             subtitle: Text(
-              _aiReplyHistory.isEmpty ? '暂无历史记录' : '共 ${_aiReplyHistory.length} 条，点击可查看',
+              _aiReplyHistory.isEmpty ? '暂无历史记录' : '共 ${_aiReplyHistory.length} 条，点击可复制',
               style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
             childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -336,6 +337,21 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                           '$scene · $timeText',
                           style: const TextStyle(fontSize: 11, color: Colors.grey),
                         ),
+                        trailing: const Icon(
+                          Icons.copy,
+                          size: 16,
+                          color: Color(0xFF586AFE),
+                        ),
+                        // 点击复制该条历史，可直接粘贴到任意输入框复用
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: text));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('已复制到剪贴板'),
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                        },
                       );
                     },
                   ),

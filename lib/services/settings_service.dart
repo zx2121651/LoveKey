@@ -237,6 +237,14 @@ class SettingsService {
     } catch (_) {}
   }
 
+  /// 删除单条 AI 回复历史（按文本匹配）
+  Future<void> deleteAIReplyHistory(String text) async {
+    if (!_channelAvailable) return;
+    try {
+      await _channel.invokeMethod('deleteAIReplyHistory', {'text': text});
+    } catch (_) {}
+  }
+
   /// 手动把一条回复写入历史（如 Flutter 页内选中 LLM 结果），供键盘"最近"行复用
   Future<void> addAIReplyHistory(String scene, String text) async {
     if (!_channelAvailable) return;

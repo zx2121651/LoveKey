@@ -323,6 +323,13 @@ object SettingsStore {
         getPrefs(context).edit().remove(KEY_AI_REPLY_HISTORY).apply()
     }
 
+    /** 删除单条 AI 回复历史（按文本匹配，删除全部同文本条目；去重后通常命中 1 条） */
+    fun removeAIReplyHistory(context: Context, text: String) {
+        val trimmed = text.trim().ifBlank { return }
+        val list = getAIReplyHistory(context).filterNot { it.optString("text") == trimmed }
+        persistAIReplyHistory(context, list)
+    }
+
     private fun persistAIReplyHistory(context: Context, list: List<JSONObject>) {
         val arr = JSONArray()
         list.forEach { arr.put(it) }

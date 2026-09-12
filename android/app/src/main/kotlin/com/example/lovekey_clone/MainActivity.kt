@@ -124,6 +124,12 @@ class MainActivity : FlutterActivity() {
                         SettingsStore.clearAIReplyHistory(this)
                         result.success(true)
                     }
+                    // 删除单条 AI 回复历史（按文本匹配）
+                    "deleteAIReplyHistory" -> {
+                        val text = call.argument<String>("text").orEmpty()
+                        SettingsStore.removeAIReplyHistory(this, text)
+                        result.success(true)
+                    }
                     // Flutter 页内生成后选中的回复也入历史，键盘"最近"行跨端复用
                     "addAIReplyHistory" -> {
                         val scene = call.argument<String>("scene") ?: SettingsStore.SCENE_GENERAL

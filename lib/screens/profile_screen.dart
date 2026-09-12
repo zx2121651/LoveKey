@@ -245,6 +245,18 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     }
   }
 
+  /// 左滑删除单条历史：删除后本地移除并刷新，避免 Dismissible 残留
+  Future<void> _deleteHistory(String text) async {
+    await SettingsService.instance.deleteAIReplyHistory(text);
+    if (mounted) {
+      setState(() {
+        _aiReplyHistory = _aiReplyHistory
+            .where((item) => item['text'] != text)
+            .toList();
+      });
+    }
+  }
+
   Future<void> _toggleFloatBall(bool value) async {
     if (value) {
       final started = await FloatBallService.instance.start();
@@ -323,35 +335,50 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                               .toString()
                               .substring(5, 16)
                           : '';
-                      return ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.chat_bubble_outline, size: 18, color: Colors.grey),
-                        title: Text(
-                          text,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 13),
+                      // 左滑删除单条历史（与"清空历史"互补的细粒度管理）
+                      return Dismissible(
+                        key: ValueKey('ai_history_$index'),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE05A5A),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.delete_outline, color: Colors.white, size: 20),
                         ),
-                        subtitle: Text(
-                          '$scene · $timeText',
-                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        onDismissed: (_) => _deleteHistory(text),
+                        child: ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.chat_bubble_outline, size: 18, color: Colors.grey),
+                          title: Text(
+                            text,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          subtitle: Text(
+                            '$scene · $timeText',
+                            style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                          trailing: const Icon(
+                            Icons.copy,
+                            size: 16,
+                            color: Color(0xFF586AFE),
+                          ),
+                          // 点击复制该条历史，可直接粘贴到任意输入框复用
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: text));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('已复制到剪贴板'),
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          },
                         ),
-                        trailing: const Icon(
-                          Icons.copy,
-                          size: 16,
-                          color: Color(0xFF586AFE),
-                        ),
-                        // 点击复制该条历史，可直接粘贴到任意输入框复用
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(text: text));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('已复制到剪贴板'),
-                              duration: Duration(seconds: 1),
-                            ),
-                          );
-                        },
                       );
                     },
                   ),
